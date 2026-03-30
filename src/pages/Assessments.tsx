@@ -1,15 +1,39 @@
-import { Link } from "react-router-dom";
-import { useAssessments, useCompanies } from "@/hooks/use-api";
+import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useAssessments, useCreateAssessment } from "@/hooks/useAssessments";
+import { useCompanies } from "@/hooks/useCompanies";
 import { SkeletonTable } from "@/components/ui/skeleton-card";
 import { Button } from "@/components/ui/button";
-import { Plus, ClipboardCheck, Eye, BarChart3 } from "lucide-react";
+import { Plus, ClipboardCheck, BarChart3 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AssessmentsPage() {
+  const navigate = useNavigate();
   const { data: assessments, isLoading } = useAssessments();
   const { data: companies } = useCompanies();
+  const createAssessment = useCreateAssessment();
+  const [showCreate, setShowCreate] = useState(false);
+  const [companyId, setCompanyId] = useState<number>(0);
 
   const getCompanyName = (companyId: number) =>
     companies?.find((c) => c.id === companyId)?.name || `Empresa #${companyId}`;
+  const handleCreateAssessment = async () => {
+    if (!companyId) {
+      toast.error("Selecione uma empresa");
+      return;
+    }
+
+    try {
+      const assessment = await createAssessment.mutateAsync({ companyId });
+      toast.success("Avaliação automática iniciada");
+      setShowCreate(false);
+      setCompanyId(0);
+      navigate(`/dashboard/assessments/${assessment.id}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao criar avaliação";
+      toast.error(message);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -18,12 +42,35 @@ export default function AssessmentsPage() {
           <h1 className="text-2xl font-bold">Avaliações</h1>
           <p className="text-muted-foreground text-sm mt-1">Gerencie as avaliações de maturidade</p>
         </div>
-        <Button asChild className="rounded-lg h-10">
-          <Link to="/dashboard/assessments/new">
+        <Button className="rounded-lg h-10" onClick={() => setShowCreate((prev) => !prev)}>
             <Plus className="w-4 h-4 mr-2" /> Nova Avaliação
-          </Link>
         </Button>
       </div>
+
+      {showCreate && (
+        <div className="ascend-card grid grid-cols-1 md:grid-cols-2 gap-3">
+          <select
+            className="ascend-input w-full"
+            value={companyId || ""}
+            onChange={(e) => setCompanyId(Number(e.target.value))}
+          >
+            <option value="">Selecione a empresa</option>
+            {(companies || []).map((company) => (
+              <option key={company.id} value={company.id}>
+                {company.name}
+              </option>
+            ))}
+          </select>
+
+          <Button
+            className="rounded-lg"
+            onClick={handleCreateAssessment}
+            disabled={createAssessment.isPending}
+          >
+            {createAssessment.isPending ? "Iniciando..." : "Iniciar diagnóstico automático"}
+          </Button>
+        </div>
+      )}
 
       {isLoading ? (
         <SkeletonTable rows={4} />
@@ -47,9 +94,9 @@ export default function AssessmentsPage() {
                     <td className="px-4 py-3 text-foreground">{getCompanyName(a.companyId)}</td>
                     <td className="px-4 py-3 hidden sm:table-cell">
                       <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                        a.status === "COMPLETED" ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                        a.status === "SUBMITTED" ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
                       }`}>
-                        {a.status === "COMPLETED" ? "Concluída" : "Em progresso"}
+                        {a.status === "SUBMITTED" ? "Concluída" : "Em progresso"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
@@ -57,7 +104,7 @@ export default function AssessmentsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        {a.status === "IN_PROGRESS" ? (
+                        {a.status !== "SUBMITTED" ? (
                           <Button variant="ghost" size="icon" asChild className="h-8 w-8 rounded-lg">
                             <Link to={`/dashboard/assessments/${a.id}`}>
                               <ClipboardCheck className="w-4 h-4" />

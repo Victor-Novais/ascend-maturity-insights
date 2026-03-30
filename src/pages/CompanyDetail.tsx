@@ -1,8 +1,10 @@
 import { useParams, Link } from "react-router-dom";
-import { useCompany, useAssessments } from "@/hooks/use-api";
+import { useCompany } from "@/hooks/useCompanies";
+import { useAssessments } from "@/hooks/useAssessments";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
 import { Button } from "@/components/ui/button";
 import { Building2, ArrowLeft, Pencil, ClipboardCheck, MapPin, Phone, Mail, Hash } from "lucide-react";
+import { ApiError } from "@/lib/api";
 
 const sizeLabels: Record<string, string> = {
   MICRO: "Micro",
@@ -13,12 +15,15 @@ const sizeLabels: Record<string, string> = {
 
 export default function CompanyDetail() {
   const { id } = useParams();
-  const { data: company, isLoading } = useCompany(Number(id));
+  const { data: company, isLoading, error } = useCompany(Number(id));
   const { data: assessments } = useAssessments();
 
   const companyAssessments = assessments?.filter((a) => a.companyId === Number(id)) || [];
 
   if (isLoading) return <SkeletonCard />;
+  if (error instanceof ApiError && error.status === 403) {
+    return <p className="text-muted-foreground text-center py-12">Você não tem acesso a esta empresa.</p>;
+  }
   if (!company) return <p className="text-muted-foreground text-center py-12">Empresa não encontrada.</p>;
 
   return (
@@ -32,7 +37,7 @@ export default function CompanyDetail() {
         </Link>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{company.name}</h1>
-          <p className="text-sm text-muted-foreground">{company.segment} • {sizeLabels[company.size]}</p>
+          <p className="text-sm text-muted-foreground">{company.segment} • {company.size ? sizeLabels[company.size] : "—"}</p>
         </div>
         <Button asChild variant="outline" className="rounded-lg">
           <Link to={`/dashboard/companies/${id}/edit`}>
@@ -98,12 +103,12 @@ export default function CompanyDetail() {
                 </div>
                 <span
                   className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                    a.status === "COMPLETED"
+                    a.status === "SUBMITTED"
                       ? "bg-success/10 text-success"
                       : "bg-warning/10 text-warning"
                   }`}
                 >
-                  {a.status === "COMPLETED" ? "Concluída" : "Em progresso"}
+                  {a.status === "SUBMITTED" ? "Concluída" : "Em progresso"}
                 </span>
               </Link>
             ))}

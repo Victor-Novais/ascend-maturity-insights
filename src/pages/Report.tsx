@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { useReport } from "@/hooks/use-api";
+import { useAssessment } from "@/hooks/useAssessments";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
 import { ArrowLeft, Award, TrendingUp, AlertTriangle, Lightbulb } from "lucide-react";
 import {
@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { MaturityLevel } from "@/lib/types";
+import { ApiError } from "@/lib/api";
 
 const maturityConfig: Record<MaturityLevel, { label: string; color: string; bg: string }> = {
   ARTESANAL: { label: "Artesanal", color: "text-destructive", bg: "bg-destructive/10" },
@@ -29,10 +30,16 @@ const categoryLabels: Record<string, string> = {
 
 export default function ReportPage() {
   const { id } = useParams();
-  const { data: report, isLoading } = useReport(Number(id));
+  const { data: assessment, isLoading, error } = useAssessment(Number(id));
 
   if (isLoading) return <SkeletonCard />;
-  if (!report) {
+  if (error instanceof ApiError && error.status === 403) {
+    return <div className="ascend-card text-center py-16 text-muted-foreground">Você não tem acesso a esta empresa.</div>;
+  }
+  if (error instanceof ApiError && error.status === 404) {
+    return <div className="ascend-card text-center py-16 text-muted-foreground">Assessment não encontrado.</div>;
+  }
+  if (!assessment) {
     return (
       <div className="ascend-card text-center py-16">
         <p className="text-muted-foreground">Relatório não encontrado. A avaliação pode ainda não estar concluída.</p>
@@ -43,11 +50,26 @@ export default function ReportPage() {
     );
   }
 
-  const maturity = maturityConfig[report.maturityLevel];
+  if (!assessment.maturityLevel || assessment.totalScore === null || assessment.totalScore === undefined) {
+    return (
+      <div className="ascend-card text-center py-16">
+        <p className="text-muted-foreground">O resultado ainda está sendo calculado automaticamente.</p>
+      </div>
+    );
+  }
 
-  const chartData = report.categoryScores.map((cs) => ({
+  const maturity = maturityConfig[assessment.maturityLevel];
+
+  const categoryScores = Object.entries(assessment.categoryScores || {}).map(
+    ([category, score]) => ({
+      category,
+      score,
+    }),
+  );
+
+  const chartData = categoryScores.map((cs) => ({
     category: categoryLabels[cs.category] || cs.category,
-    score: cs.percentage,
+    score: cs.score,
     fullMark: 100,
   }));
 
@@ -73,7 +95,7 @@ export default function ReportPage() {
             <Award className="w-7 h-7 text-primary" />
           </div>
           <div>
-            <p className="text-3xl font-bold text-foreground">{report.totalScore.toFixed(1)}</p>
+            <p className="text-3xl font-bold text-foreground">{Number(assessment.totalScore).toFixed(1)}</p>
             <p className="text-sm text-muted-foreground">Score Total</p>
           </div>
         </div>
@@ -121,7 +143,7 @@ export default function ReportPage() {
       <div className="ascend-card">
         <h2 className="text-lg font-semibold mb-4">Detalhamento por Categoria</h2>
         <div className="space-y-3">
-          {report.categoryScores.map((cs) => (
+          {categoryScores.map((cs) => (
             <div key={cs.category} className="flex items-center gap-4">
               <span className="text-sm font-medium w-28 flex-shrink-0">
                 {categoryLabels[cs.category]}
@@ -129,11 +151,11 @@ export default function ReportPage() {
               <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full ascend-gradient transition-all duration-500"
-                  style={{ width: `${cs.percentage}%` }}
+                  style={{ width: `${cs.score}%` }}
                 />
               </div>
               <span className="text-sm font-bold text-foreground w-12 text-right">
-                {cs.percentage.toFixed(0)}%
+                {cs.score.toFixed(0)}%
               </span>
             </div>
           ))}
@@ -142,14 +164,14 @@ export default function ReportPage() {
 
       {/* Strengths, Weaknesses, Recommendations */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {report.strengths.length > 0 && (
+        {(assessment.strengths || []).length > 0 && (
           <div className="ascend-card">
             <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="w-5 h-5 text-success" />
               <h3 className="font-semibold">Pontos Fortes</h3>
             </div>
             <ul className="space-y-2">
-              {report.strengths.map((s, i) => (
+              {(assessment.strengths || []).map((s, i) => (
                 <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-success mt-1.5 flex-shrink-0" />
                   {s}
@@ -159,14 +181,14 @@ export default function ReportPage() {
           </div>
         )}
 
-        {report.weaknesses.length > 0 && (
+        {(assessment.weaknesses || []).length > 0 && (
           <div className="ascend-card">
             <div className="flex items-center gap-2 mb-3">
               <AlertTriangle className="w-5 h-5 text-warning" />
               <h3 className="font-semibold">Pontos de Atenção</h3>
             </div>
             <ul className="space-y-2">
-              {report.weaknesses.map((w, i) => (
+              {(assessment.weaknesses || []).map((w, i) => (
                 <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-warning mt-1.5 flex-shrink-0" />
                   {w}
@@ -177,14 +199,14 @@ export default function ReportPage() {
         )}
       </div>
 
-      {report.recommendations.length > 0 && (
+      {(assessment.recommendations || []).length > 0 && (
         <div className="ascend-card">
           <div className="flex items-center gap-2 mb-3">
             <Lightbulb className="w-5 h-5 text-primary" />
             <h3 className="font-semibold">Recomendações</h3>
           </div>
           <ul className="space-y-2">
-            {report.recommendations.map((r, i) => (
+            {(assessment.recommendations || []).map((r, i) => (
               <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
                 <span className="w-5 h-5 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">
                   {i + 1}

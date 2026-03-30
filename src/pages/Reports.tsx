@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { useAssessments, useCompanies } from "@/hooks/use-api";
+import { useAssessments } from "@/hooks/useAssessments";
+import { useCompanies } from "@/hooks/useCompanies";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
 import { FileBarChart, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,7 @@ export default function ReportsPage() {
   const { data: assessments, isLoading } = useAssessments();
   const { data: companies } = useCompanies();
 
-  const completed = assessments?.filter((a) => a.status === "COMPLETED") || [];
+  const completed = assessments?.filter((a) => !!a.totalScore && !!a.maturityLevel) || [];
   const getCompanyName = (id: number) => companies?.find((c) => c.id === id)?.name || `Empresa #${id}`;
 
   if (isLoading) return <SkeletonCard />;

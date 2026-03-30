@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { api } from "@/lib/api";
+import { clearAuthToken, setAuthToken } from "@/lib/api";
 import type { User } from "@/lib/types";
+import { authService } from "@/services/auth.service";
 
 interface AuthContextType {
   user: User | null;
@@ -25,10 +26,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
-      const userData = await api.get<User>("/auth/me");
-      setUser(userData);
+      const userData = await authService.me();
+      setUser({
+        id: userData.id,
+        email: userData.email,
+        role: userData.role,
+        createdAt: "",
+        name: null,
+      });
     } catch {
-      localStorage.removeItem("ascend_token");
+      clearAuthToken();
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -40,12 +47,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchUser]);
 
   const login = (token: string) => {
-    localStorage.setItem("ascend_token", token);
-    fetchUser();
+    setAuthToken(token);
+    void fetchUser();
   };
 
   const logout = () => {
-    localStorage.removeItem("ascend_token");
+    clearAuthToken();
     setUser(null);
   };
 

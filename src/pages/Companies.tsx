@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { useCompanies, useDeleteCompany } from "@/hooks/use-api";
+import { useCompanies, useDeleteCompany } from "@/hooks/useCompanies";
 import { SkeletonTable } from "@/components/ui/skeleton-card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Plus, Search, Building2, Trash2, Pencil, Eye } from "lucide-react";
 import { toast } from "sonner";
-import type { Company, CompanySize } from "@/lib/types";
+import type { CompanySize } from "@/lib/types";
 
 const sizeLabels: Record<CompanySize, string> = {
   MICRO: "Micro",
@@ -96,7 +96,7 @@ export default function CompaniesPage() {
                     <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{company.segment}</td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                        {sizeLabels[company.size]}
+                        {company.size ? sizeLabels[company.size] : "—"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">{company.responsible}</td>

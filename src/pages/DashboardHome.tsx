@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { useCompanies, useAssessments } from "@/hooks/use-api";
+import { useCompanies } from "@/hooks/useCompanies";
+import { useAssessments } from "@/hooks/useAssessments";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
 import { Building2, ClipboardCheck, TrendingUp, AlertTriangle } from "lucide-react";
 
@@ -8,8 +9,16 @@ export default function DashboardHome() {
   const { data: companies, isLoading: loadingCompanies } = useCompanies();
   const { data: assessments, isLoading: loadingAssessments } = useAssessments();
 
-  const completedAssessments = assessments?.filter((a) => a.status === "COMPLETED") || [];
+  const completedAssessments = assessments?.filter((a) => a.status === "SUBMITTED") || [];
   const inProgressAssessments = assessments?.filter((a) => a.status === "IN_PROGRESS") || [];
+  const latestByCompany = (companies || [])
+    .map((company) => {
+      const companyAssessments = (assessments || [])
+        .filter((assessment) => assessment.companyId === company.id)
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      return { company, latest: companyAssessments[0] };
+    })
+    .filter((item) => item.latest);
 
   const stats = [
     {
@@ -73,43 +82,61 @@ export default function DashboardHome() {
 
       {/* Recent Assessments */}
       <div className="ascend-card">
-        <h2 className="text-lg font-semibold mb-4">Avaliações Recentes</h2>
+        <h2 className="text-lg font-semibold mb-4">Último diagnóstico por empresa</h2>
         {isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="h-12 bg-muted rounded-lg animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-muted via-muted-foreground/5 to-muted" />
             ))}
           </div>
-        ) : assessments && assessments.length > 0 ? (
+        ) : latestByCompany.length > 0 ? (
           <div className="space-y-2">
-            {assessments.slice(0, 5).map((assessment) => (
+            {latestByCompany.slice(0, 5).map(({ company, latest }) => (
               <div
-                key={assessment.id}
-                className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                key={latest!.id}
+                className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors space-y-3"
               >
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Avaliação #{assessment.id}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Empresa ID: {assessment.companyId}
-                  </p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{company.name}</p>
+                    <p className="text-xs text-muted-foreground">Assessment #{latest!.id}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold">
+                      {latest!.totalScore ? Number(latest!.totalScore).toFixed(1) : "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {latest!.maturityLevel || "Nível indisponível"}
+                    </p>
+                  </div>
                 </div>
-                <span
-                  className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                    assessment.status === "COMPLETED"
-                      ? "bg-success/10 text-success"
-                      : "bg-warning/10 text-warning"
-                  }`}
-                >
-                  {assessment.status === "COMPLETED" ? "Concluída" : "Em progresso"}
-                </span>
+                {latest!.categoryScores && (
+                  <div className="space-y-1">
+                    {Object.entries(latest!.categoryScores).map(([category, score]) => (
+                      <div key={category} className="flex items-center gap-2">
+                        <span className="text-[11px] text-muted-foreground w-24">{category}</span>
+                        <div className="flex-1 h-1.5 bg-background rounded-full overflow-hidden">
+                          <div className="h-full bg-primary rounded-full" style={{ width: `${score}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(latest!.recommendations || []).length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Recomendação: {latest!.recommendations![0]}
+                  </p>
+                )}
               </div>
             ))}
           </div>
+        ) : companies && companies.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">
+            Você ainda não possui empresas cadastradas.
+          </p>
         ) : (
           <p className="text-sm text-muted-foreground py-6 text-center">
-            Nenhuma avaliação encontrada. Comece avaliando uma empresa!
+            Nenhum diagnóstico automático encontrado. Inicie uma avaliação para começar.
           </p>
         )}
       </div>

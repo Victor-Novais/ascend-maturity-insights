@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useCompany, useCreateCompany, useUpdateCompany } from "@/hooks/use-api";
+import { useCompany, useCreateCompany, useUpdateCompany } from "@/hooks/useCompanies";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ArrowLeft, Save } from "lucide-react";
-import type { CompanySize } from "@/lib/types";
+import type { CompanySize, CreateCompanyRequest } from "@/lib/types";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
 
 const sizeOptions: { value: CompanySize; label: string }[] = [
@@ -34,20 +34,20 @@ export default function CompanyForm() {
   });
 
   // Populate form when editing
-  useState(() => {
+  useEffect(() => {
     if (existing) {
       setForm({
         name: existing.name,
         segment: existing.segment,
-        size: existing.size,
-        responsible: existing.responsible,
-        responsibleEmail: existing.responsibleEmail,
-        responsiblePhone: existing.responsiblePhone,
-        cnpj: existing.cnpj,
-        address: existing.address,
+        size: existing.size || "MEDIA",
+        responsible: existing.responsible || "",
+        responsibleEmail: existing.responsibleEmail || "",
+        responsiblePhone: existing.responsiblePhone || "",
+        cnpj: existing.cnpj || "",
+        address: existing.address || "",
       });
     }
-  });
+  }, [existing]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,12 +55,23 @@ export default function CompanyForm() {
       toast.error("Nome da empresa é obrigatório");
       return;
     }
+    const payload: CreateCompanyRequest = {
+      name: form.name,
+      segment: form.segment,
+      size: form.size,
+      responsible: form.responsible,
+      responsibleEmail: form.responsibleEmail,
+      responsiblePhone: form.responsiblePhone || undefined,
+      cnpj: form.cnpj || undefined,
+      address: form.address || undefined,
+    };
+
     try {
       if (isEditing) {
-        await updateMutation.mutateAsync({ id: Number(id), ...form });
+        await updateMutation.mutateAsync({ id: Number(id), payload });
         toast.success("Empresa atualizada com sucesso");
       } else {
-        await createMutation.mutateAsync(form);
+        await createMutation.mutateAsync(payload);
         toast.success("Empresa criada com sucesso");
       }
       navigate("/dashboard/companies");
