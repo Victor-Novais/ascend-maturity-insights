@@ -15,9 +15,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+const clienteNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Empresas", icon: Building2, path: "/dashboard/companies" },
+  { label: "Avaliações", icon: ClipboardCheck, path: "/dashboard/assessments" },
+  { label: "Relatórios", icon: FileBarChart, path: "/dashboard/reports" },
+];
+
+const collaboratorNavItems = [
+  { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Avaliações", icon: ClipboardCheck, path: "/dashboard/assessments" },
   { label: "Relatórios", icon: FileBarChart, path: "/dashboard/reports" },
 ];
