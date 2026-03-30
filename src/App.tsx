@@ -8,6 +8,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import LoginPage from "@/pages/Login";
 import RegisterPage from "@/pages/Register";
 import DashboardHome from "@/pages/DashboardHome";
+import CollaboratorDashboard from "@/pages/CollaboratorDashboard";
 import CompaniesPage from "@/pages/Companies";
 import CompanyForm from "@/pages/CompanyForm";
 import CompanyDetail from "@/pages/CompanyDetail";
