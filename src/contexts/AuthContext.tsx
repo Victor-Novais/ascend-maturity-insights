@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: userData.email,
         role: userData.role,
         createdAt: "",
-        name: null,
+        name: userData.name ?? null,
       });
     } catch {
       clearAuthToken();

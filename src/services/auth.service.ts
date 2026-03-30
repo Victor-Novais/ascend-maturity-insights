@@ -3,8 +3,11 @@ import type { AuthResponse, LoginRequest, RegisterRequest, UserRole } from "@/li
 
 export interface MeResponse {
   id: string;
+  name: string | null;
   email: string;
   role: UserRole;
+  companyId?: number;
+  companyName?: string;
 }
 
 export const authService = {
