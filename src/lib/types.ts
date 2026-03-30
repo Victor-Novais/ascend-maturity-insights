@@ -168,6 +168,11 @@ export interface RegisterRequest {
   email: string;
   password: string;
   role?: UserRole;
+  userType?: "CLIENTE" | "COLLABORATOR";
+  companyCode?: string;
+  companyName?: string;
+  companySegment?: string;
+  companySize?: CompanySize;
 }
 
 export interface AuthResponse {
