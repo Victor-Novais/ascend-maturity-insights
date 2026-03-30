@@ -40,7 +40,7 @@ const App = () => (
 
             <Route element={<ProtectedRoute />}>
               <Route element={<DashboardLayout />}>
-                <Route path="/dashboard" element={<DashboardHome />} />
+                <Route path="/dashboard" element={<DashboardRouter />} />
                 <Route path="/dashboard/companies" element={<CompaniesPage />} />
                 <Route path="/dashboard/companies/new" element={<CompanyForm />} />
                 <Route path="/dashboard/companies/:id" element={<CompanyDetail />} />
