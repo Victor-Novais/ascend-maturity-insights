@@ -61,7 +61,7 @@ export default function DashboardLayout() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 mt-2 space-y-1">
-        {navItems.map((item) => (
+        {(user?.role === "COLLABORATOR" ? collaboratorNavItems : clienteNavItems).map((item) => (
           <Link
             key={item.path}
             to={item.path}
