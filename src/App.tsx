@@ -7,7 +7,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import DashboardLayout from "@/components/DashboardLayout";
 import LoginPage from "@/pages/Login";
 import RegisterPage from "@/pages/Register";
-import DashboardHome from "@/pages/DashboardHome";
+import DashboardRouter from "@/pages/DashboardRouter";
 import CompaniesPage from "@/pages/Companies";
 import CompanyForm from "@/pages/CompanyForm";
 import CompanyDetail from "@/pages/CompanyDetail";
@@ -40,7 +40,7 @@ const App = () => (
 
             <Route element={<ProtectedRoute />}>
               <Route element={<DashboardLayout />}>
-                <Route path="/dashboard" element={<DashboardHome />} />
+                <Route path="/dashboard" element={<DashboardRouter />} />
                 <Route path="/dashboard/companies" element={<CompaniesPage />} />
                 <Route path="/dashboard/companies/new" element={<CompanyForm />} />
                 <Route path="/dashboard/companies/:id" element={<CompanyDetail />} />

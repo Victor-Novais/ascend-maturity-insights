@@ -1,4 +1,4 @@
-export type UserRole = "ADMIN" | "CLIENTE";
+export type UserRole = "ADMIN" | "CLIENTE" | "COLLABORATOR";
 
 export interface User {
   id: string;
@@ -168,6 +168,11 @@ export interface RegisterRequest {
   email: string;
   password: string;
   role?: UserRole;
+  userType?: "CLIENTE" | "COLLABORATOR";
+  companyCode?: string;
+  companyName?: string;
+  companySegment?: string;
+  companySize?: CompanySize;
 }
 
 export interface AuthResponse {
