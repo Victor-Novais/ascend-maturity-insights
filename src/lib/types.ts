@@ -240,6 +240,12 @@ export interface SubmitAnswersRequest {
   }>;
 }
 
+export interface AssessmentResultData {
+  score: number;
+  maturityLevel: MaturityLevel;
+  categoryScores: Record<QuestionCategory, number>;
+}
+
 export interface ReportPayload {
   assessmentId: number;
   totalScore: number;

@@ -1,5 +1,12 @@
 import { api } from "@/lib/api";
-import type { AssessmentQuestion, AssessmentWithRelations, CreateAssessmentRequest } from "@/lib/types";
+import type {
+  AssessmentQuestion,
+  AssessmentResultData,
+  AssessmentWithRelations,
+  CreateAssessmentRequest,
+  MaturityLevel,
+  QuestionCategory,
+} from "@/lib/types";
 
 /**
  * Assessment instances (backend: GET/POST /assessments).
@@ -14,6 +21,25 @@ export const assessmentService = {
   },
   getById(id: number) {
     return api.get<AssessmentWithRelations>(`/assessments/${id}`);
+  },
+  getResult(id: number) {
+    return api.get<AssessmentWithRelations>(`/assessments/${id}`).then((assessment) => {
+      const report = assessment.report;
+      const scoreRaw = assessment.totalScore ?? report?.totalScore ?? null;
+      const score = Number(scoreRaw);
+      const maturityLevel = (assessment.maturityLevel ?? report?.maturityLevel ?? null) as MaturityLevel | null;
+      const categoryScores = report?.categoryScores as Record<QuestionCategory, number> | undefined;
+
+      if (!Number.isFinite(score) || !maturityLevel || !categoryScores) {
+        throw new Error("Assessment result not available");
+      }
+
+      return {
+        score,
+        maturityLevel,
+        categoryScores,
+      } satisfies AssessmentResultData;
+    });
   },
   getQuestions(id: number) {
     return api

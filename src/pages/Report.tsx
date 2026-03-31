@@ -1,8 +1,8 @@
 import { useParams, Link } from "react-router-dom";
-import { useAssessment } from "@/hooks/useAssessments";
+import { useAssessmentResult } from "@/hooks/useAssessments";
 import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
-import { ArrowLeft, Award, TrendingUp, AlertTriangle, Lightbulb } from "lucide-react";
+import { ArrowLeft, Award, TrendingUp } from "lucide-react";
 import {
   RadarChart,
   PolarGrid,
@@ -13,13 +13,6 @@ import {
 } from "recharts";
 import type { MaturityLevel } from "@/lib/types";
 import { ApiError } from "@/lib/api";
-import {
-  getCategoryScores,
-  getMaturityLevel,
-  getTotalScoreNumber,
-  normalizeRecommendations,
-  normalizeStrengthsWeaknesses,
-} from "@/lib/report-utils";
 
 const maturityConfig: Record<MaturityLevel, { label: string; color: string; bg: string }> = {
   ARTESANAL: { label: "Artesanal", color: "text-destructive", bg: "bg-destructive/10" },
@@ -39,7 +32,7 @@ const categoryLabels: Record<string, string> = {
 export default function ReportPage() {
   const { id } = useParams();
   const { user } = useAuth();
-  const { data: assessment, isLoading, error } = useAssessment(Number(id));
+  const { data: result, isLoading, error } = useAssessmentResult(Number(id));
 
   if (user?.role === "COLLABORATOR") {
     return (
@@ -62,7 +55,7 @@ export default function ReportPage() {
   if (error instanceof ApiError && error.status === 404) {
     return <div className="ascend-card text-center py-16 text-muted-foreground">Avaliação não encontrada.</div>;
   }
-  if (!assessment) {
+  if (!result) {
     return (
       <div className="ascend-card text-center py-16">
         <p className="text-muted-foreground">Relatório não encontrado.</p>
@@ -73,31 +66,13 @@ export default function ReportPage() {
     );
   }
 
-  const totalScore = getTotalScoreNumber(assessment);
-  const maturityLevel = getMaturityLevel(assessment);
-  const categoryScores = getCategoryScores(assessment);
+  const maturity = maturityConfig[result.maturityLevel];
 
-  if (totalScore === null || !maturityLevel || !categoryScores) {
-    return (
-      <div className="ascend-card text-center py-16">
-        <p className="text-muted-foreground">
-          O resultado consolidado ainda não está disponível. Aguarde o fechamento da avaliação no servidor.
-        </p>
-      </div>
-    );
-  }
-
-  const maturity = maturityConfig[maturityLevel];
-
-  const chartRows = Object.entries(categoryScores).map(([category, score]) => ({
+  const chartRows = Object.entries(result.categoryScores).map(([category, score]) => ({
     category: categoryLabels[category] || category,
     score,
     fullMark: 100,
   }));
-
-  const strengths = normalizeStrengthsWeaknesses(assessment.report?.strengths);
-  const weaknesses = normalizeStrengthsWeaknesses(assessment.report?.weaknesses);
-  const recommendations = normalizeRecommendations(assessment.report?.recommendations);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
@@ -120,8 +95,8 @@ export default function ReportPage() {
             <Award className="w-7 h-7 text-primary" />
           </div>
           <div>
-            <p className="text-3xl font-bold text-foreground">{totalScore.toFixed(1)}</p>
-            <p className="text-sm text-muted-foreground">Score total</p>
+            <p className="text-4xl font-bold text-foreground">{result.score.toFixed(0)}%</p>
+            <p className="text-sm text-muted-foreground">Pontuação geral</p>
           </div>
         </div>
         <div className="ascend-card flex items-center gap-4">
@@ -136,7 +111,7 @@ export default function ReportPage() {
       </div>
 
       <div className="ascend-card">
-        <h2 className="text-lg font-semibold mb-4">Maturidade por categoria</h2>
+        <h2 className="text-lg font-semibold mb-4">Score por categoria</h2>
         <div className="w-full h-80">
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart data={chartRows}>
@@ -166,7 +141,7 @@ export default function ReportPage() {
       <div className="ascend-card">
         <h2 className="text-lg font-semibold mb-4">Detalhamento por categoria</h2>
         <div className="space-y-3">
-          {Object.entries(categoryScores).map(([cat, score]) => (
+          {Object.entries(result.categoryScores).map(([cat, score]) => (
             <div key={cat} className="flex items-center gap-4">
               <span className="text-sm font-medium w-28 flex-shrink-0">{categoryLabels[cat]}</span>
               <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
@@ -180,67 +155,6 @@ export default function ReportPage() {
           ))}
         </div>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {strengths.length > 0 && (
-          <div className="ascend-card">
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="w-5 h-5 text-success" />
-              <h3 className="font-semibold">Pontos fortes</h3>
-            </div>
-            <ul className="space-y-2">
-              {strengths.map((s, i) => (
-                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-success mt-1.5 flex-shrink-0" />
-                  <span>
-                    <span className="font-medium text-foreground">{s.title}</span>
-                    {s.summary ? <span className="block mt-0.5">{s.summary}</span> : null}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {weaknesses.length > 0 && (
-          <div className="ascend-card">
-            <div className="flex items-center gap-2 mb-3">
-              <AlertTriangle className="w-5 h-5 text-warning" />
-              <h3 className="font-semibold">Pontos de atenção</h3>
-            </div>
-            <ul className="space-y-2">
-              {weaknesses.map((w, i) => (
-                <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-warning mt-1.5 flex-shrink-0" />
-                  <span>
-                    <span className="font-medium text-foreground">{w.title}</span>
-                    {w.summary ? <span className="block mt-0.5">{w.summary}</span> : null}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      {recommendations.length > 0 && (
-        <div className="ascend-card">
-          <div className="flex items-center gap-2 mb-3">
-            <Lightbulb className="w-5 h-5 text-primary" />
-            <h3 className="font-semibold">Recomendações</h3>
-          </div>
-          <ul className="space-y-2">
-            {recommendations.map((r, i) => (
-              <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
-                <span className="w-5 h-5 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">
-                  {i + 1}
-                </span>
-                {r}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { assessmentService } from "@/services/assessment.service";
 import { answerService } from "@/services/answer.service";
 import type {
   SubmitAnswersRequest,
+  AssessmentResultData,
   CreateAssessmentRequest,
   UpsertAssessmentResponsesRequest,
 } from "@/lib/types";
@@ -25,6 +26,14 @@ export function useAssessment(id: number) {
   return useQuery({
     queryKey: ["assessment-detail", id],
     queryFn: () => assessmentService.getById(id),
+    enabled: Number.isFinite(id) && id > 0,
+  });
+}
+
+export function useAssessmentResult(id: number) {
+  return useQuery<AssessmentResultData>({
+    queryKey: ["assessment-result", id],
+    queryFn: () => assessmentService.getResult(id),
     enabled: Number.isFinite(id) && id > 0,
   });
 }
