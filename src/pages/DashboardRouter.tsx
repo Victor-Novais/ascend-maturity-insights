@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import DashboardHome from "@/pages/DashboardHome";
+import DashboardAnalyticsPage from "@/pages/dashboard";
 import CollaboratorDashboard from "@/pages/CollaboratorDashboard";
 
 export default function DashboardRouter() {
@@ -9,5 +9,5 @@ export default function DashboardRouter() {
     return <CollaboratorDashboard />;
   }
 
-  return <DashboardHome />;
+  return <DashboardAnalyticsPage />;
 }

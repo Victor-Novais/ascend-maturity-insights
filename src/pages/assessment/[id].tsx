@@ -37,7 +37,7 @@ export default function AssessmentQuestionPage() {
     mutationFn: () => assessmentFlowApi.finalizeAssessment(assessmentId),
     onSuccess: () => {
       setFinalized(true);
-      navigate(`/assessment/report?id=${assessmentId}`);
+      navigate(`/assessment/${assessmentId}/report`);
     },
     onError: (error) =>
       setErrorMessage(error instanceof Error ? error.message : "Erro ao finalizar assessment"),

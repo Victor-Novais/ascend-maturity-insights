@@ -19,6 +19,8 @@ import NotFound from "@/pages/NotFound";
 import AssessmentCreatePage from "@/pages/assessment/create";
 import AssessmentQuestionPage from "@/pages/assessment/[id]";
 import AssessmentReportPage from "@/pages/assessment/report";
+import AssessmentReportByIdPage from "@/pages/assessment/[id]/report";
+import AssessmentDetailsPage from "@/pages/assessment/[id]/details";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,6 +57,8 @@ const App = () => (
                 <Route path="/assessment/create" element={<AssessmentCreatePage />} />
                 <Route path="/assessment/:id" element={<AssessmentQuestionPage />} />
                 <Route path="/assessment/report" element={<AssessmentReportPage />} />
+                <Route path="/assessment/:id/report" element={<AssessmentReportByIdPage />} />
+                <Route path="/assessment/:id/details" element={<AssessmentDetailsPage />} />
               </Route>
             </Route>
 
