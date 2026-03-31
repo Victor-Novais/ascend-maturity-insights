@@ -77,8 +77,9 @@ export default function CompanyForm() {
         toast.success("Empresa criada com sucesso");
       }
       navigate("/dashboard/companies");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao salvar empresa");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Erro ao salvar empresa";
+      toast.error(message);
     }
   };
 

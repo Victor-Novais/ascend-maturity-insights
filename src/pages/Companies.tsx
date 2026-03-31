@@ -47,8 +47,9 @@ export default function CompaniesPage() {
     try {
       await deleteMutation.mutateAsync(id);
       toast.success("Empresa excluída com sucesso");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao excluir empresa");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Erro ao excluir empresa";
+      toast.error(message);
     }
   };
 

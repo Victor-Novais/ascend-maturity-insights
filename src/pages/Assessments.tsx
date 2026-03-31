@@ -15,11 +15,15 @@ export default function AssessmentsPage() {
   const navigate = useNavigate();
   const { data: assessments, isLoading } = useAssessments();
   const { data: companies } = useCompanies();
-  const { data: templates, isLoading: loadingTemplates } = useQuestionnaireTemplates();
+  const { data, isLoading: loadingTemplates } = useQuestionnaireTemplates();
   const createAssessment = useCreateAssessment();
   const [showCreate, setShowCreate] = useState(false);
   const [companyId, setCompanyId] = useState<number>(0);
   const [templateId, setTemplateId] = useState<number>(0);
+  const templates = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+  const templatesIsArray = Array.isArray(data) || data === undefined;
+
+  console.log("TEMPLATES FRONT:", templates);
 
   const canCreateAssessment =
     user?.role === "ADMIN" || user?.role === "CLIENTE";
@@ -43,7 +47,7 @@ export default function AssessmentsPage() {
     return "—";
   };
 
-  const templatesActive = useMemo(() => (templates || []).filter((t) => t.isActive), [templates]);
+  const templatesActive = useMemo(() => templates.filter((t) => t.isActive), [templates]);
 
   const categoryLabel: Record<QuestionCategory, string> = {
     GOVERNANCA: "Governança",
@@ -77,6 +81,11 @@ export default function AssessmentsPage() {
       toast.error(message);
     }
   };
+
+  if (!templatesIsArray) {
+    console.error("Templates não é array:", data);
+    return <p>Erro ao carregar templates</p>;
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -116,10 +125,8 @@ export default function AssessmentsPage() {
             ) : templatesActive.length > 0 ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {templatesActive.map((t) => {
-                  const categoriesIncluded = Array.from(
-                    new Set((t.questions || []).map((q) => q.category).filter(Boolean)),
-                  ) as QuestionCategory[];
-                  const questionCount = t.questions?.length ?? 0;
+                  const categoriesIncluded = (t.categories || []) as QuestionCategory[];
+                  const questionCount = t.questionCount ?? 0;
                   const selected = templateId === t.id;
                   return (
                     <button

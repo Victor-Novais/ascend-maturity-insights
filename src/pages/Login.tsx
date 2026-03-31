@@ -25,8 +25,9 @@ export default function LoginPage() {
       login(result.accessToken);
       toast.success("Login realizado com sucesso!");
       navigate("/dashboard");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao fazer login");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Erro ao fazer login";
+      toast.error(message);
     }
   };
 

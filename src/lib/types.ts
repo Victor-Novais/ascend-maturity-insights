@@ -93,6 +93,15 @@ export interface QuestionnaireTemplateWithQuestions extends QuestionnaireTemplat
   questions: QuestionTemplate[];
 }
 
+export type QuestionnaireTemplateListItem = {
+  id: number;
+  name: string;
+  description: string;
+  isActive: boolean;
+  questionCount: number;
+  categories: string[];
+};
+
 export type AssessmentAssignmentStatus = string;
 
 export interface AssessmentAssignment {
