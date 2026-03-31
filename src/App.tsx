@@ -16,6 +16,9 @@ import AssessmentStepper from "@/pages/AssessmentStepper";
 import ReportsPage from "@/pages/Reports";
 import ReportPage from "@/pages/Report";
 import NotFound from "@/pages/NotFound";
+import AssessmentCreatePage from "@/pages/assessment/create";
+import AssessmentQuestionPage from "@/pages/assessment/[id]";
+import AssessmentReportPage from "@/pages/assessment/report";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,6 +52,9 @@ const App = () => (
                 <Route path="/dashboard/assessments/:id" element={<AssessmentStepper />} />
                 <Route path="/dashboard/reports" element={<ReportsPage />} />
                 <Route path="/dashboard/reports/:id" element={<ReportPage />} />
+                <Route path="/assessment/create" element={<AssessmentCreatePage />} />
+                <Route path="/assessment/:id" element={<AssessmentQuestionPage />} />
+                <Route path="/assessment/report" element={<AssessmentReportPage />} />
               </Route>
             </Route>
 
