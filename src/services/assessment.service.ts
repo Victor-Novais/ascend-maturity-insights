@@ -18,8 +18,4 @@ export const assessmentService = {
   create(payload: CreateAssessmentRequest) {
     return api.post<AssessmentWithRelations>("/assessments", payload);
   },
-  /** Legacy flow: closes assessment and triggers scoring. */
-  submitLegacy(assessmentId: number) {
-    return api.post<unknown>(`/assessments/${assessmentId}/submit`);
-  },
 };

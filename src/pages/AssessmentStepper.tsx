@@ -31,11 +31,9 @@ type LocalResponse = {
   evidence: string;
 };
 
-type AssessmentWithTemplateQuestions = {
-  questionnaireTemplate?: { questions?: QuestionTemplate[] | null } | null;
-};
-
-function getQuestionnaireQuestions(assessment: AssessmentWithTemplateQuestions | null | undefined): QuestionTemplate[] {
+function getQuestionnaireQuestions(
+  assessment: { questionnaireTemplate?: { questions?: QuestionTemplate[] | null } | null } | null | undefined,
+): QuestionTemplate[] {
   const tmpl = assessment?.questionnaireTemplate;
   if (!tmpl) return [];
   if (Array.isArray(tmpl.questions)) return tmpl.questions;
@@ -348,11 +346,9 @@ export default function AssessmentStepper() {
                   </div>
                 )}
 
-                {qType === null && (
-                  <p className="text-xs text-warning mt-1">
-                    Tipo da pergunta não informado pelo backend.
-                  </p>
-                )}
+                {qType === null ? (
+                  <p className="text-xs text-warning mt-1">Tipo da pergunta não informado pelo backend.</p>
+                ) : null}
 
                 {q.evidenceRequired && (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-xs text-muted-foreground">

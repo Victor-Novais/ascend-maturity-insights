@@ -1,10 +1,10 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAssessments, useCreateAssessment } from "@/hooks/useAssessments";
 import { useQuestionnaireTemplates } from "@/hooks/useQuestionnaires";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useAuth } from "@/contexts/AuthContext";
-import type { AssessmentWithRelations } from "@/lib/types";
+import type { AssessmentWithRelations, QuestionCategory } from "@/lib/types";
 import { SkeletonTable } from "@/components/ui/skeleton-card";
 import { Button } from "@/components/ui/button";
 import { Plus, ClipboardCheck, BarChart3 } from "lucide-react";
@@ -31,9 +31,7 @@ export default function AssessmentsPage() {
   }, [companies, companyId]);
 
   useEffect(() => {
-    if (templates?.length === 1 && templateId === 0) {
-      setTemplateId(templates[0].id);
-    }
+    if (templates?.length === 1 && templateId === 0) setTemplateId(templates[0].id);
   }, [templates, templateId]);
 
   const getCompanyName = (cid: number) =>
@@ -45,13 +43,23 @@ export default function AssessmentsPage() {
     return "—";
   };
 
+  const templatesActive = useMemo(() => (templates || []).filter((t) => t.isActive), [templates]);
+
+  const categoryLabel: Record<QuestionCategory, string> = {
+    GOVERNANCA: "Governança",
+    SEGURANCA: "Segurança",
+    PROCESSOS: "Processos",
+    INFRAESTRUTURA: "Infraestrutura",
+    CULTURA: "Cultura",
+  };
+
   const handleCreateAssessment = async () => {
     if (!companyId) {
       toast.error("Selecione uma empresa");
       return;
     }
     if (!templateId) {
-      toast.error("Selecione um modelo de questionário");
+      toast.error("Selecione um modelo de avaliação");
       return;
     }
 
@@ -62,9 +70,7 @@ export default function AssessmentsPage() {
       toast.success("Avaliação criada e atribuída aos colaboradores");
       setShowCreate(false);
       setCompanyId(companies?.length === 1 ? companies[0].id : 0);
-      setTemplateId(
-        companies?.length === 1 && templates?.length === 1 ? templates?.[0]?.id ?? 0 : 0,
-      );
+      setTemplateId(templates?.length === 1 ? templates[0].id : 0);
       navigate(`/dashboard/assessments/${assessment.id}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Erro ao criar avaliação";
@@ -89,7 +95,7 @@ export default function AssessmentsPage() {
       </div>
 
       {showCreate && canCreateAssessment && (
-        <div className="ascend-card grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="ascend-card space-y-4">
           <select
             className="ascend-input w-full"
             value={companyId || ""}
@@ -103,31 +109,85 @@ export default function AssessmentsPage() {
             ))}
           </select>
 
-          <select
-            className="ascend-input w-full"
-            value={templateId || ""}
-            onChange={(e) => setTemplateId(Number(e.target.value))}
-            disabled={loadingTemplates}
-          >
-            <option value="">Selecione um modelo de questionário</option>
-            {(templates || []).filter((t) => t.isActive).map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Selecione um modelo de avaliação</p>
+            {loadingTemplates ? (
+              <SkeletonTable rows={2} />
+            ) : templatesActive.length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {templatesActive.map((t) => {
+                  const categoriesIncluded = Array.from(
+                    new Set((t.questions || []).map((q) => q.category).filter(Boolean)),
+                  ) as QuestionCategory[];
+                  const questionCount = t.questions?.length ?? 0;
+                  const selected = templateId === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setTemplateId(t.id)}
+                      className={`text-left rounded-lg border p-4 transition-all ${
+                        selected
+                          ? "border-primary bg-primary/5 shadow-medium"
+                          : "border-border hover:border-primary/40 hover:bg-muted/30"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground truncate">{t.name}</p>
+                          {t.description ? (
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{t.description}</p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground mt-1">Sem descrição</p>
+                          )}
+                        </div>
+                        <span
+                          className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                            selected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {selected ? "Selecionado" : "Selecionar"}
+                        </span>
+                      </div>
 
-          <div className="md:col-span-2 flex flex-wrap gap-2">
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className="text-xs px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
+                          {questionCount} perguntas
+                        </span>
+                        {categoriesIncluded.length > 0 ? (
+                          categoriesIncluded.map((c) => (
+                            <span
+                              key={c}
+                              className="text-xs px-2.5 py-1 rounded-full bg-muted text-muted-foreground"
+                            >
+                              {categoryLabel[c] ?? c}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
+                            Sem categorias
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Nenhum modelo ativo disponível.</p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
             <Button
               className="rounded-lg"
               onClick={() => void handleCreateAssessment()}
-              disabled={createAssessment.isPending}
+              disabled={createAssessment.isPending || !companyId || !templateId}
             >
               {createAssessment.isPending ? "Criando..." : "Criar avaliação"}
             </Button>
             <p className="text-xs text-muted-foreground w-full">
-              Com modelo selecionado, a avaliação é distribuída automaticamente aos colaboradores da empresa.
-              É necessário pelo menos um colaborador vinculado.
+              A avaliação será criada com o modelo escolhido e distribuída automaticamente aos colaboradores da empresa.
             </p>
           </div>
         </div>

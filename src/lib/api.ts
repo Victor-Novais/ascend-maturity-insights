@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://ascend-back-end-ohtq.onrender.com";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 const TOKEN_KEY = "ascend_token";
 
 interface RequestOptions extends RequestInit {
@@ -28,7 +28,7 @@ export function clearAuthToken(): void {
 }
 
 class ApiClient {
-  constructor(private readonly baseUrl: string) {}
+  constructor(private readonly baseUrl: string) { }
 
   private buildUrl(endpoint: string, params?: RequestOptions["params"]): string {
     const url = new URL(`${this.baseUrl}${endpoint}`);

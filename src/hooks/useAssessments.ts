@@ -70,15 +70,3 @@ export function useParticipantSubmit() {
     },
   });
 }
-
-export function useSubmitLegacyAssessment() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (assessmentId: number) => assessmentService.submitLegacy(assessmentId),
-    onSuccess: (_, assessmentId) => {
-      queryClient.invalidateQueries({ queryKey: ["assessments"] });
-      queryClient.invalidateQueries({ queryKey: ["assessments-my"] });
-      queryClient.invalidateQueries({ queryKey: ["assessment-detail", assessmentId] });
-    },
-  });
-}
