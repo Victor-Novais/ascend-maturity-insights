@@ -1,4 +1,4 @@
-export type UserRole = "ADMIN" | "AVALIADOR" | "CLIENTE" | "COLLABORATOR";
+export type UserRole = "ADMIN" | "CLIENTE" | "COLLABORATOR";
 
 export interface User {
   id: string;
@@ -71,6 +71,8 @@ export interface QuestionTemplate {
   text: string;
   category: QuestionCategory;
   weight: string;
+  /** Backend may provide explicit question type: text | multiple_choice | scale */
+  type?: string | null;
   responseType: ResponseType;
   evidenceRequired: boolean;
   hint: string | null;

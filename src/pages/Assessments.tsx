@@ -22,7 +22,7 @@ export default function AssessmentsPage() {
   const [templateId, setTemplateId] = useState<number>(0);
 
   const canCreateAssessment =
-    user?.role === "ADMIN" || user?.role === "AVALIADOR" || user?.role === "CLIENTE";
+    user?.role === "ADMIN" || user?.role === "CLIENTE";
 
   useEffect(() => {
     if (companies?.length === 1 && companyId === 0) {
@@ -43,13 +43,6 @@ export default function AssessmentsPage() {
     const t = assessment.questionnaireTemplate;
     if (t && "name" in t) return t.name;
     return "—";
-  };
-
-  const progressLabel = (assessment: AssessmentWithRelations) => {
-    if (!assessment.questionnaireTemplateId || !assessment.assignments?.length) return null;
-    const total = assessment.assignments.length;
-    const done = assessment.assignments.filter((a) => a.status === "SUBMITTED").length;
-    return `${done}/${total} colaboradores`;
   };
 
   const handleCreateAssessment = async () => {
@@ -156,7 +149,7 @@ export default function AssessmentsPage() {
                     Status
                   </th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden xl:table-cell">
-                    Progresso
+                    Colaboradores
                   </th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">
                     Nível
@@ -178,11 +171,11 @@ export default function AssessmentsPage() {
                           a.status === "SUBMITTED" ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
                         }`}
                       >
-                        {a.status === "SUBMITTED" ? "Concluída" : a.status === "NOT_STARTED" ? "Não iniciada" : "Em progresso"}
+                        {a.status}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground hidden xl:table-cell text-xs">
-                      {progressLabel(a) || "—"}
+                      {a.assignments?.length ? `${a.assignments.length}` : "—"}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
                       {a.maturityLevel || "—"}
@@ -196,7 +189,7 @@ export default function AssessmentsPage() {
                             </Link>
                           </Button>
                         ) : user?.role === "COLLABORATOR" ? (
-                          <span className="text-xs text-muted-foreground px-2">Concluída</span>
+                          <span className="text-xs text-muted-foreground px-2">{a.status}</span>
                         ) : (
                           <Button variant="ghost" size="icon" asChild className="h-8 w-8 rounded-lg">
                             <Link to={`/dashboard/reports/${a.id}`}>

@@ -9,13 +9,16 @@ export const assessmentService = {
   list() {
     return api.get<AssessmentWithRelations[]>("/assessments");
   },
+  listMy() {
+    return api.get<AssessmentWithRelations[]>("/assessments/my");
+  },
   getById(id: number) {
     return api.get<AssessmentWithRelations>(`/assessments/${id}`);
   },
   create(payload: CreateAssessmentRequest) {
     return api.post<AssessmentWithRelations>("/assessments", payload);
   },
-  /** Legacy single-evaluator flow: closes assessment and triggers scoring. */
+  /** Legacy flow: closes assessment and triggers scoring. */
   submitLegacy(assessmentId: number) {
     return api.post<unknown>(`/assessments/${assessmentId}/submit`);
   },

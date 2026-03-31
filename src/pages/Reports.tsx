@@ -9,7 +9,7 @@ export default function ReportsPage() {
   const { data: assessments, isLoading } = useAssessments();
   const { data: companies } = useCompanies();
 
-  const completed = assessments?.filter((a) => !!a.totalScore && !!a.maturityLevel) || [];
+  const completed = assessments?.filter((a) => a.status === "SUBMITTED") || [];
   const getCompanyName = (id: number) => companies?.find((c) => c.id === id)?.name || `Empresa #${id}`;
 
   if (isLoading) return <SkeletonCard />;

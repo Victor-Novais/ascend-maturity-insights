@@ -14,9 +14,16 @@ export function useAssessments() {
   });
 }
 
+export function useMyAssessments() {
+  return useQuery({
+    queryKey: ["assessments-my"],
+    queryFn: assessmentService.listMy,
+  });
+}
+
 export function useAssessment(id: number) {
   return useQuery({
-    queryKey: ["assessments", id],
+    queryKey: ["assessment-detail", id],
     queryFn: () => assessmentService.getById(id),
     enabled: Number.isFinite(id) && id > 0,
   });
@@ -28,6 +35,7 @@ export function useCreateAssessment() {
     mutationFn: (payload: CreateAssessmentRequest) => assessmentService.create(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["assessments-my"] });
     },
   });
 }
@@ -44,8 +52,9 @@ export function useUpsertAssessmentResponses() {
     }) => answerService.upsertResponses(assessmentId, payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["assessments-my"] });
       queryClient.invalidateQueries({
-        queryKey: ["assessments", variables.assessmentId],
+        queryKey: ["assessment-detail", variables.assessmentId],
       });
     },
   });
@@ -57,7 +66,8 @@ export function useParticipantSubmit() {
     mutationFn: (assessmentId: number) => answerService.participantSubmit(assessmentId),
     onSuccess: (_, assessmentId) => {
       queryClient.invalidateQueries({ queryKey: ["assessments"] });
-      queryClient.invalidateQueries({ queryKey: ["assessments", assessmentId] });
+      queryClient.invalidateQueries({ queryKey: ["assessments-my"] });
+      queryClient.invalidateQueries({ queryKey: ["assessment-detail", assessmentId] });
     },
   });
 }
@@ -68,7 +78,8 @@ export function useSubmitLegacyAssessment() {
     mutationFn: (assessmentId: number) => assessmentService.submitLegacy(assessmentId),
     onSuccess: (_, assessmentId) => {
       queryClient.invalidateQueries({ queryKey: ["assessments"] });
-      queryClient.invalidateQueries({ queryKey: ["assessments", assessmentId] });
+      queryClient.invalidateQueries({ queryKey: ["assessments-my"] });
+      queryClient.invalidateQueries({ queryKey: ["assessment-detail", assessmentId] });
     },
   });
 }

@@ -23,7 +23,7 @@ export default function CompaniesPage() {
 
   const isCollaborator = user?.role === "COLLABORATOR";
   const canManageCompanies =
-    user?.role === "ADMIN" || user?.role === "AVALIADOR" || user?.role === "CLIENTE";
+    user?.role === "ADMIN" || user?.role === "CLIENTE";
 
   const filtered = companies?.filter(
     (c) =>

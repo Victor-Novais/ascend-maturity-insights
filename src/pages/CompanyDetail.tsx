@@ -17,7 +17,7 @@ const sizeLabels: Record<string, string> = {
 export default function CompanyDetail() {
   const { user } = useAuth();
   const canEdit =
-    user?.role === "ADMIN" || user?.role === "AVALIADOR" || user?.role === "CLIENTE";
+    user?.role === "ADMIN" || user?.role === "CLIENTE";
   const { id } = useParams();
   const { data: company, isLoading, error } = useCompany(Number(id));
   const { data: assessments } = useAssessments();
@@ -123,7 +123,7 @@ export default function CompanyDetail() {
                       : "bg-warning/10 text-warning"
                   }`}
                 >
-                  {a.status === "SUBMITTED" ? "Concluída" : "Em progresso"}
+                  {a.status}
                 </span>
               </Link>
             ))}

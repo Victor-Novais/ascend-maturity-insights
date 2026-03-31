@@ -1,10 +1,8 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAssessments } from "@/hooks/useAssessments";
-import { useCompanies } from "@/hooks/useCompanies";
+import { useMyAssessments } from "@/hooks/useAssessments";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
 import {
-  Building2,
   ClipboardCheck,
   ArrowRight,
   CheckCircle2,
@@ -14,13 +12,12 @@ import { Button } from "@/components/ui/button";
 
 export default function CollaboratorDashboard() {
   const { user } = useAuth();
-  const { data: companies, isLoading: loadingCompanies } = useCompanies();
-  const { data: assessments, isLoading: loadingAssessments } = useAssessments();
+  const { data: assessments, isLoading: loadingAssessments } = useMyAssessments();
 
-  const isLoading = loadingCompanies || loadingAssessments;
-  const company = companies?.[0];
-  const activeAssessments =
-    assessments?.filter((a) => a.status === "IN_PROGRESS" || a.status === "NOT_STARTED") || [];
+  // Show all assigned assessments except those explicitly marked as SUBMITTED.
+  // Backend may use intermediate statuses like ASSIGNED/ACTIVE, so we shouldn't hardcode them here.
+  const activeAssessments = assessments?.filter((a) => a.status !== "SUBMITTED") || [];
+  const isLoading = loadingAssessments;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -28,33 +25,6 @@ export default function CollaboratorDashboard() {
         <h1 className="text-2xl font-bold">Olá, {user?.name?.split(" ")[0]} 👋</h1>
         <p className="text-muted-foreground mt-1">Painel do colaborador — responda às avaliações atribuídas.</p>
       </div>
-
-      {isLoading ? (
-        <SkeletonCard />
-      ) : company ? (
-        <div className="ascend-card flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Building2 className="w-6 h-6 text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-foreground text-lg">{company.name}</p>
-            <p className="text-sm text-muted-foreground">{company.segment}</p>
-          </div>
-          {company.size && (
-            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-muted text-muted-foreground hidden sm:block">
-              {company.size}
-            </span>
-          )}
-        </div>
-      ) : (
-        <div className="ascend-card flex flex-col items-center justify-center py-12 text-center">
-          <Building2 className="w-12 h-12 text-muted-foreground/30 mb-4" />
-          <p className="font-medium text-foreground mb-1">Nenhuma empresa vinculada</p>
-          <p className="text-sm text-muted-foreground max-w-xs">
-            Peça ao responsável o código da empresa para se vincular.
-          </p>
-        </div>
-      )}
 
       <div>
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -78,11 +48,9 @@ export default function CollaboratorDashboard() {
                   <div>
                     <p className="font-medium text-foreground">Avaliação #{a.id}</p>
                     <p className="text-xs text-muted-foreground">
-                      {a.questionnaireTemplate && "name" in a.questionnaireTemplate
-                        ? a.questionnaireTemplate.name
-                        : "Avaliação"}
-                      {" · "}
-                      {a.status === "NOT_STARTED" ? "Não iniciada" : "Em progresso"}
+                      {a.questionnaireTemplate?.name ?? "Avaliação"}
+                      {a.company?.name ? ` · ${a.company.name}` : ""}
+                      {` · Status: ${a.status}`}
                     </p>
                   </div>
                 </div>

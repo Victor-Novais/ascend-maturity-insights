@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useAssessments } from "@/hooks/useAssessments";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
-import { Building2, ClipboardCheck, TrendingUp, AlertTriangle } from "lucide-react";
+import { Building2, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   getCategoryScores,
@@ -18,7 +18,6 @@ export default function DashboardHome() {
   const { data: assessments, isLoading: loadingAssessments } = useAssessments();
 
   const completedAssessments = assessments?.filter((a) => a.status === "SUBMITTED") || [];
-  const inProgressAssessments = assessments?.filter((a) => a.status === "IN_PROGRESS") || [];
   const latestByCompany = (companies || [])
     .map((company) => {
       const companyAssessments = (assessments || [])
@@ -42,20 +41,6 @@ export default function DashboardHome() {
       icon: ClipboardCheck,
       color: "text-success",
       bg: "bg-success/10",
-    },
-    {
-      label: "Em Progresso",
-      value: inProgressAssessments.length,
-      icon: TrendingUp,
-      color: "text-warning",
-      bg: "bg-warning/10",
-    },
-    {
-      label: "Pendentes",
-      value: (companies?.length ?? 0) - (assessments?.length ?? 0),
-      icon: AlertTriangle,
-      color: "text-muted-foreground",
-      bg: "bg-muted",
     },
   ];
 
@@ -86,7 +71,7 @@ export default function DashboardHome() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {isLoading
           ? Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
           : stats.map((stat) => (
