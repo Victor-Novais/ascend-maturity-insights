@@ -101,3 +101,16 @@ export function useSubmitAssessmentAnswers() {
     },
   });
 }
+
+export function useFinishAssessment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (assessmentId: number) => assessmentService.finish(assessmentId),
+    onSuccess: (_, assessmentId) => {
+      queryClient.invalidateQueries({ queryKey: ["assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["assessments-my"] });
+      queryClient.invalidateQueries({ queryKey: ["assessment-detail", assessmentId] });
+      queryClient.invalidateQueries({ queryKey: ["assessment-result", assessmentId] });
+    },
+  });
+}

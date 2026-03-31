@@ -1,16 +1,9 @@
 import { useParams, Link } from "react-router-dom";
-import { useAssessmentResult } from "@/hooks/useAssessments";
+import { useAssessment, useAssessmentResult } from "@/hooks/useAssessments";
 import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
+import MaturityChart from "@/components/MaturityChart";
 import { ArrowLeft, Award, TrendingUp } from "lucide-react";
-import {
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  ResponsiveContainer,
-} from "recharts";
 import type { MaturityLevel } from "@/lib/types";
 import { ApiError } from "@/lib/api";
 
@@ -31,8 +24,10 @@ const categoryLabels: Record<string, string> = {
 
 export default function ReportPage() {
   const { id } = useParams();
+  const assessmentId = Number(id);
   const { user } = useAuth();
-  const { data: result, isLoading, error } = useAssessmentResult(Number(id));
+  const { data: assessment, isLoading: isLoadingAssessment } = useAssessment(assessmentId);
+  const { data: result, isLoading, error } = useAssessmentResult(assessmentId);
 
   if (user?.role === "COLLABORATOR") {
     return (
@@ -48,7 +43,7 @@ export default function ReportPage() {
     );
   }
 
-  if (isLoading) return <SkeletonCard />;
+  if (isLoading || isLoadingAssessment) return <SkeletonCard />;
   if (error instanceof ApiError && error.status === 403) {
     return <div className="ascend-card text-center py-16 text-muted-foreground">Você não tem acesso a este relatório.</div>;
   }
@@ -67,15 +62,20 @@ export default function ReportPage() {
   }
 
   const maturity = maturityConfig[result.maturityLevel];
-
-  const chartRows = Object.entries(result.categoryScores).map(([category, score]) => ({
-    category: categoryLabels[category] || category,
+  const companyName = assessment?.company?.name ?? "Unknown Company";
+  const categoryRows = Object.entries(result.categoryScores).map(([category, score]) => ({
+    key: category,
+    label: categoryLabels[category] ?? category,
     score,
-    fullMark: 100,
   }));
+  const insights = categoryRows
+    .filter(({ score }) => score < 50 || score > 70)
+    .map(({ label, score }) =>
+      score < 50 ? `Needs improvement in ${label}` : `Strong performance in ${label}`,
+    );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
       <div className="flex items-center gap-4">
         <Link
           to="/dashboard/assessments"
@@ -83,23 +83,23 @@ export default function ReportPage() {
         >
           <ArrowLeft className="w-4 h-4" />
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold">Relatório da Avaliação #{id}</h1>
-          <p className="text-sm text-muted-foreground">Resultados gerados pelo motor de maturidade (servidor)</p>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold">Assessment Report</h1>
+          <p className="text-sm text-muted-foreground">{companyName}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="ascend-card flex items-center gap-4">
-          <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
+      <div className="ascend-card flex items-center justify-between gap-6 flex-wrap">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center">
             <Award className="w-7 h-7 text-primary" />
           </div>
           <div>
-            <p className="text-4xl font-bold text-foreground">{result.score.toFixed(0)}%</p>
-            <p className="text-sm text-muted-foreground">Pontuação geral</p>
+            <p className="text-5xl font-bold text-foreground leading-none">{result.score.toFixed(0)}%</p>
+            <p className="text-sm text-muted-foreground mt-2">Main score</p>
           </div>
         </div>
-        <div className="ascend-card flex items-center gap-4">
+        <div className="flex items-center gap-4">
           <div className={`w-14 h-14 rounded-xl ${maturity.bg} flex items-center justify-center`}>
             <TrendingUp className={`w-7 h-7 ${maturity.color}`} />
           </div>
@@ -110,50 +110,45 @@ export default function ReportPage() {
         </div>
       </div>
 
-      <div className="ascend-card">
-        <h2 className="text-lg font-semibold mb-4">Score por categoria</h2>
-        <div className="w-full h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={chartRows}>
-              <PolarGrid stroke="hsl(var(--border))" />
-              <PolarAngleAxis
-                dataKey="category"
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-              />
-              <PolarRadiusAxis
-                angle={90}
-                domain={[0, 100]}
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
-              />
-              <Radar
-                name="Score"
-                dataKey="score"
-                stroke="hsl(var(--primary))"
-                fill="hsl(var(--primary))"
-                fillOpacity={0.2}
-                strokeWidth={2}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="ascend-card">
+          <h2 className="text-lg font-semibold mb-4">Category Analysis</h2>
+          <MaturityChart categoryScores={result.categoryScores} />
+        </div>
+        <div className="ascend-card">
+          <h2 className="text-lg font-semibold mb-4">Categories</h2>
+          <div className="space-y-3">
+            {categoryRows.map(({ key, label, score }) => (
+              <div key={key} className="flex items-center gap-4">
+                <span className="text-sm font-medium w-32 flex-shrink-0">{label}</span>
+                <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full ascend-gradient transition-all duration-500"
+                    style={{ width: `${score}%` }}
+                  />
+                </div>
+                <span className="text-sm font-bold text-foreground w-12 text-right">{score.toFixed(0)}%</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
       <div className="ascend-card">
-        <h2 className="text-lg font-semibold mb-4">Detalhamento por categoria</h2>
-        <div className="space-y-3">
-          {Object.entries(result.categoryScores).map(([cat, score]) => (
-            <div key={cat} className="flex items-center gap-4">
-              <span className="text-sm font-medium w-28 flex-shrink-0">{categoryLabels[cat]}</span>
-              <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full ascend-gradient transition-all duration-500"
-                  style={{ width: `${score}%` }}
-                />
+        <h2 className="text-lg font-semibold mb-4">Insights</h2>
+        {insights.length > 0 ? (
+          <div className="space-y-2">
+            {insights.map((insight) => (
+              <div key={insight} className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                {insight}
               </div>
-              <span className="text-sm font-bold text-foreground w-12 text-right">{score.toFixed(0)}%</span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+            Balanced performance across all categories.
+          </div>
+        )}
       </div>
     </div>
   );

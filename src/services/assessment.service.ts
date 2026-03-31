@@ -51,4 +51,7 @@ export const assessmentService = {
   create(payload: CreateAssessmentRequest) {
     return api.post<AssessmentWithRelations>("/assessments", payload);
   },
+  finish(id: number) {
+    return api.post<AssessmentWithRelations>(`/assessments/${id}/finish`);
+  },
 };

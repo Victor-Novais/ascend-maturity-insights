@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,12 @@ import { SkeletonCard } from "@/components/ui/skeleton-card";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAssessment, useAssessmentQuestions, useSubmitAssessmentAnswers } from "@/hooks/useAssessments";
+import {
+  useAssessment,
+  useAssessmentQuestions,
+  useFinishAssessment,
+  useSubmitAssessmentAnswers,
+} from "@/hooks/useAssessments";
 import type { AssessmentQuestion, MaturityLevel, QuestionCategory } from "@/lib/types";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Cog, Lock, Shield, Server, Users } from "lucide-react";
 
@@ -34,6 +39,7 @@ export default function AssessmentStepper() {
   const { data: assessment, isLoading: loadingAssessment, error } = useAssessment(assessmentId);
   const { data: assessmentQuestions, isLoading: loadingQuestions } = useAssessmentQuestions(assessmentId);
   const submitAnswers = useSubmitAssessmentAnswers();
+  const finishAssessment = useFinishAssessment();
   const currentAssessment = assessment ?? null;
   const questions = useMemo<AssessmentQuestion[]>(() => assessmentQuestions ?? [], [assessmentQuestions]);
 
@@ -44,13 +50,26 @@ export default function AssessmentStepper() {
 
   const alreadySubmitted = myAssignment?.status === "SUBMITTED";
   const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [currentIndex, setCurrentIndex] = useState(0);
   const latestScore = currentAssessment?.totalScore != null ? Number(currentAssessment.totalScore) : null;
   const maturity = currentAssessment?.maturityLevel
     ? maturityConfig[currentAssessment.maturityLevel as MaturityLevel]
     : null;
   const isLoading = loadingAssessment || loadingQuestions;
   const allQuestionsAnswered = questions.length > 0 && questions.every((q) => Number.isFinite(answers[q.id]));
-  const canSubmit = !alreadySubmitted && allQuestionsAnswered && !submitAnswers.isPending;
+  const isSubmitting = submitAnswers.isPending || finishAssessment.isPending;
+  const canSubmit = !alreadySubmitted && allQuestionsAnswered && !isSubmitting;
+  const currentQuestion = questions[currentIndex];
+  const currentAnswer = currentQuestion ? answers[currentQuestion.id] : undefined;
+  const isCurrentAnswered = Number.isFinite(currentAnswer);
+  const progressPercent = questions.length ? ((currentIndex + 1) / questions.length) * 100 : 0;
+
+  useEffect(() => {
+    if (!questions.length) return;
+    if (currentIndex > questions.length - 1) {
+      setCurrentIndex(questions.length - 1);
+    }
+  }, [currentIndex, questions.length]);
 
   const handleSelect = (questionId: number, optionId: number) => {
     setAnswers((prev) => ({
@@ -75,14 +94,28 @@ export default function AssessmentStepper() {
           selectedOptionId: optId,
         })),
       });
-      toast.success("Respostas enviadas. Obrigado!");
+      await finishAssessment.mutateAsync(assessmentId);
+      toast.success("Assessment finalizado com sucesso.");
       navigate(`/dashboard/reports/${assessmentId}`);
     } catch (e) {
-      let msg = e instanceof Error ? e.message : "Erro ao enviar respostas";
+      let msg = e instanceof Error ? e.message : "Erro ao finalizar assessment";
       if (e instanceof ApiError && e.status === 403) msg = "Você não tem acesso a esta empresa";
       if (e instanceof ApiError && e.status === 404) msg = "Assessment não encontrado";
       toast.error(msg);
     }
+  };
+
+  const handleNext = () => {
+    if (!currentQuestion) return;
+    if (!isCurrentAnswered) {
+      toast.error("Selecione uma opção para continuar.");
+      return;
+    }
+    setCurrentIndex((prev) => Math.min(prev + 1, questions.length - 1));
+  };
+
+  const handlePrevious = () => {
+    setCurrentIndex((prev) => Math.max(prev - 1, 0));
   };
 
   if (isLoading) return <SkeletonCard />;
@@ -173,81 +206,98 @@ export default function AssessmentStepper() {
         </div>
       </div>
 
-      <div className="space-y-4">
-        {questions.map((q, idx) => {
-          const cfg = q.category ? categoryConfig[q.category as QuestionCategory] : undefined;
-          const selectedOptionId = answers[q.id];
+      <div className="ascend-card space-y-5">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">
+              Question {currentIndex + 1} of {questions.length}
+            </span>
+            <span className="text-muted-foreground">{Math.round(progressPercent)}%</span>
+          </div>
+          <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
 
-          return (
-            <div key={q.id} className="ascend-card animate-fade-in" style={{ animationDelay: `${idx * 30}ms` }}>
-              <div className="flex items-start gap-3 mb-4">
-                <span className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">
-                  {idx + 1}
-                </span>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">{q.text}</p>
-                  <div className="flex flex-wrap items-center gap-2 mt-2">
-                    {cfg ? (
-                      <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex items-center gap-1")}>
-                        <cfg.icon className="w-3.5 h-3.5" />
-                        {cfg.label}
-                      </span>
-                    ) : (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                        Sem categoria
-                      </span>
-                    )}
-                  </div>
-                </div>
+        {currentQuestion && (
+          <div className="min-h-[300px] flex flex-col justify-center">
+            <div className="max-w-2xl mx-auto w-full space-y-5">
+              <div className="text-center space-y-3">
+                {currentQuestion.category ? (
+                  <span className="inline-flex text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground items-center gap-1">
+                    {(() => {
+                      const cfg = categoryConfig[currentQuestion.category as QuestionCategory];
+                      if (!cfg) return <>Sem categoria</>;
+                      return (
+                        <>
+                          <cfg.icon className="w-3.5 h-3.5" />
+                          {cfg.label}
+                        </>
+                      );
+                    })()}
+                  </span>
+                ) : (
+                  <span className="inline-flex text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                    Sem categoria
+                  </span>
+                )}
+                <h2 className="text-xl font-semibold text-foreground">{currentQuestion.text}</h2>
               </div>
 
-              <div className="space-y-3">
-                {q.options?.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {q.options
-                      .slice()
-                      .sort((a, b) => a.weight - b.weight)
-                      .map((opt) => {
-                        const isSelected = selectedOptionId === opt.id;
-                        return (
-                          <button
-                            key={opt.id}
-                            type="button"
-                            className={cn(
-                              "px-4 py-2 rounded-lg text-sm border transition-all",
-                              isSelected
-                                ? "bg-primary text-primary-foreground border-primary"
-                                : "border-border text-muted-foreground hover:border-primary/50",
-                            )}
-                            onClick={() => handleSelect(q.id, opt.id)}
-                            disabled={submitAnswers.isPending}
-                          >
-                            {opt.text}
-                          </button>
-                        );
-                      })}
-                  </div>
-                )}
+              <div className="grid grid-cols-1 gap-3">
+                {currentQuestion.options
+                  ?.slice()
+                  .sort((a, b) => a.weight - b.weight)
+                  .map((opt) => {
+                    const isSelected = answers[currentQuestion.id] === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        className={cn(
+                          "w-full rounded-xl border p-4 text-left transition-all",
+                          isSelected
+                            ? "border-primary bg-primary/10 text-foreground ring-1 ring-primary/40"
+                            : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:bg-muted/30",
+                        )}
+                        onClick={() => handleSelect(currentQuestion.id, opt.id)}
+                        disabled={isSubmitting}
+                      >
+                        {opt.text}
+                      </button>
+                    );
+                  })}
               </div>
             </div>
-          );
-        })}
-      </div>
+          </div>
+        )}
 
-      <div className="flex justify-between items-center gap-4 flex-wrap">
-        <div className="text-xs text-muted-foreground">
-          As respostas são calculadas automaticamente no servidor.
+        <div className="flex items-center justify-between gap-3 pt-2 border-t border-border">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-lg"
+            onClick={handlePrevious}
+            disabled={currentIndex === 0 || isSubmitting}
+          >
+            Previous
+          </Button>
+
+          {currentIndex < questions.length - 1 ? (
+            <Button type="button" className="rounded-lg" onClick={handleNext} disabled={isSubmitting}>
+              Next
+            </Button>
+          ) : (
+            <Button type="button" onClick={() => void handleSubmitFinal()} disabled={!canSubmit} className="rounded-lg">
+              {isSubmitting && <span className="mr-2">...</span>}
+              Finish Assessment
+              <CheckCircle2 className="w-4 h-4 ml-2" />
+            </Button>
+          )}
         </div>
-        <Button
-          type="button"
-          onClick={() => void handleSubmitFinal()}
-          disabled={!canSubmit}
-          className="rounded-lg"
-        >
-          {submitAnswers.isPending && <span className="mr-2">...</span>}
-          Enviar respostas finais
-          <CheckCircle2 className="w-4 h-4 ml-2" />
-        </Button>
       </div>
     </div>
   );
