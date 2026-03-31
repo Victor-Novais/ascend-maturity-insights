@@ -4,14 +4,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
 import MaturityChart from "@/components/MaturityChart";
 import { ArrowLeft, Award, TrendingUp } from "lucide-react";
-import type { MaturityLevel } from "@/lib/types";
 import { ApiError } from "@/lib/api";
 
-const maturityConfig: Record<MaturityLevel, { label: string; color: string; bg: string }> = {
-  ARTESANAL: { label: "Artesanal", color: "text-destructive", bg: "bg-destructive/10" },
-  EFICIENTE: { label: "Eficiente", color: "text-warning", bg: "bg-warning/10" },
-  EFICAZ: { label: "Eficaz", color: "text-primary", bg: "bg-primary/10" },
-  ESTRATEGICO: { label: "Estratégico", color: "text-success", bg: "bg-success/10" },
+const maturityConfig: Record<string, { label: string; color: string; bg: string }> = {
+  Inicial: { label: "Inicial", color: "text-destructive", bg: "bg-destructive/10" },
+  Básico: { label: "Básico", color: "text-warning", bg: "bg-warning/10" },
+  Intermediário: { label: "Intermediário", color: "text-primary", bg: "bg-primary/10" },
+  Avançado: { label: "Avançado", color: "text-success", bg: "bg-success/10" },
+  Otimizado: { label: "Otimizado", color: "text-success", bg: "bg-success/10" },
 };
 
 const categoryLabels: Record<string, string> = {
@@ -61,7 +61,11 @@ export default function ReportPage() {
     );
   }
 
-  const maturity = maturityConfig[result.maturityLevel];
+  const maturity = maturityConfig[result.maturityLevel] ?? {
+    label: result.maturityLevel,
+    color: "text-primary",
+    bg: "bg-primary/10",
+  };
   const companyName = assessment?.company?.name ?? "Unknown Company";
   const categoryRows = Object.entries(result.categoryScores).map(([category, score]) => ({
     key: category,

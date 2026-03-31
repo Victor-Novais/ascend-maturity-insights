@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAssessments } from "@/hooks/useAssessments";
 import { assessmentFlowApi } from "@/services/api";
+import { ApiError } from "@/lib/api";
 
 type HistoricalPoint = {
   name: string;
@@ -39,6 +40,9 @@ export default function DashboardAnalyticsPage() {
 
   const latestResult = resultQueries[0]?.data ?? null;
   const hasResultError = resultQueries.some((query) => query.isError);
+  const hasResult404 = resultQueries.some(
+    (query) => query.error instanceof ApiError && query.error.status === 404,
+  );
   const isLoadingResults = resultQueries.some((query) => query.isLoading);
 
   const categoriesData = latestResult?.categories ?? [];
@@ -122,7 +126,9 @@ export default function DashboardAnalyticsPage() {
       {hasResultError && (
         <Card className="rounded-2xl border-amber-300 bg-amber-50">
           <CardContent className="p-4 text-sm text-amber-800">
-            Algumas análises não puderam ser carregadas no momento. Exibindo dados disponíveis.
+            {hasResult404
+              ? "Avaliação ainda não finalizada."
+              : "Algumas análises não puderam ser carregadas no momento. Exibindo dados disponíveis."}
           </CardContent>
         </Card>
       )}

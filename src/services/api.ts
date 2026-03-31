@@ -31,7 +31,16 @@ export type AssessmentResultCategory = {
   score: number;
 };
 
+type BackendAssessmentResultResponse = {
+  totalScore: number;
+  categoryScores: Record<string, number>;
+  categoryWeights: Record<string, number>;
+};
+
 export type AssessmentResultResponse = {
+  totalScore: number;
+  categoryScores: Record<string, number>;
+  categoryWeights: Record<string, number>;
   score: number;
   maturityLevel: string;
   categories: AssessmentResultCategory[];
@@ -39,6 +48,14 @@ export type AssessmentResultResponse = {
   weaknesses: string[];
   recommendations: string[];
 };
+
+function getMaturity(score: number) {
+  if (score < 20) return "Inicial";
+  if (score < 40) return "Básico";
+  if (score < 60) return "Intermediário";
+  if (score < 80) return "Avançado";
+  return "Otimizado";
+}
 
 export const assessmentFlowApi = {
   getCompanies() {
@@ -70,6 +87,30 @@ export const assessmentFlowApi = {
     return api.post(`/assessments/${assessmentId}/finalize`);
   },
   getResult(assessmentId: number) {
-    return api.get<AssessmentResultResponse>(`/assessments/${assessmentId}/result`);
+    return api
+      .get<BackendAssessmentResultResponse>(`/assessments/${assessmentId}/result`)
+      .then((data) => {
+        // Temporary debug log requested for endpoint validation.
+        console.log("API result:", data);
+
+        const totalScore = Number(data.totalScore ?? 0);
+        const categoryScores = data.categoryScores ?? {};
+        const categoryWeights = data.categoryWeights ?? {};
+
+        return {
+          totalScore,
+          categoryScores,
+          categoryWeights,
+          score: totalScore,
+          maturityLevel: getMaturity(totalScore),
+          categories: Object.entries(categoryScores).map(([category, score]) => ({
+            category,
+            score: Number(score),
+          })),
+          strengths: [],
+          weaknesses: [],
+          recommendations: [],
+        } satisfies AssessmentResultResponse;
+      });
   },
 };

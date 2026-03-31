@@ -242,8 +242,8 @@ export interface SubmitAnswersRequest {
 
 export interface AssessmentResultData {
   score: number;
-  maturityLevel: MaturityLevel;
-  categoryScores: Record<QuestionCategory, number>;
+  maturityLevel: string;
+  categoryScores: Record<string, number>;
 }
 
 export interface ReportPayload {

@@ -4,8 +4,6 @@ import type {
   AssessmentResultData,
   AssessmentWithRelations,
   CreateAssessmentRequest,
-  MaturityLevel,
-  QuestionCategory,
 } from "@/lib/types";
 
 /**
@@ -23,23 +21,30 @@ export const assessmentService = {
     return api.get<AssessmentWithRelations>(`/assessments/${id}`);
   },
   getResult(id: number) {
-    return api.get<AssessmentWithRelations>(`/assessments/${id}`).then((assessment) => {
-      const report = assessment.report;
-      const scoreRaw = assessment.totalScore ?? report?.totalScore ?? null;
-      const score = Number(scoreRaw);
-      const maturityLevel = (assessment.maturityLevel ?? report?.maturityLevel ?? null) as MaturityLevel | null;
-      const categoryScores = report?.categoryScores as Record<QuestionCategory, number> | undefined;
+    return api
+      .get<{
+        totalScore: number;
+        categoryScores: Record<string, number>;
+      }>(`/assessments/${id}/result`)
+      .then((data) => {
+        // Temporary debug log requested for endpoint validation.
+        console.log("API result:", data);
+        const score = Number(data.totalScore ?? 0);
 
-      if (!Number.isFinite(score) || !maturityLevel || !categoryScores) {
-        throw new Error("Assessment result not available");
-      }
+        const getMaturity = (value: number) => {
+          if (value < 20) return "Inicial";
+          if (value < 40) return "Básico";
+          if (value < 60) return "Intermediário";
+          if (value < 80) return "Avançado";
+          return "Otimizado";
+        };
 
-      return {
-        score,
-        maturityLevel,
-        categoryScores,
-      } satisfies AssessmentResultData;
-    });
+        return {
+          score,
+          maturityLevel: getMaturity(score),
+          categoryScores: data.categoryScores ?? {},
+        } satisfies AssessmentResultData;
+      });
   },
   getQuestions(id: number) {
     return api

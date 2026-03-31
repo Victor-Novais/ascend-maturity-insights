@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { ApiError } from "@/lib/api";
 
 const maturityDescription: Record<string, string> = {
   ARTESANAL: "Processos informais com baixa padronizacao e alto risco operacional.",
@@ -52,9 +53,12 @@ export default function AssessmentReportByIdPage() {
   }
 
   if (reportQuery.isError || !reportQuery.data) {
+    const isNotFinalized = reportQuery.error instanceof ApiError && reportQuery.error.status === 404;
     return (
       <div className="ascend-card py-16 text-center text-destructive">
-        {(reportQuery.error as Error)?.message ?? "Falha ao carregar relatório."}
+        {isNotFinalized
+          ? "Avaliação ainda não finalizada"
+          : (reportQuery.error as Error)?.message ?? "Falha ao carregar relatório."}
       </div>
     );
   }

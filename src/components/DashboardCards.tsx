@@ -39,7 +39,7 @@ export default function DashboardCards({
         </CardHeader>
         <CardContent>
           <p className={`text-4xl font-bold ${getScoreColor(score)}`}>
-            {score !== null ? score.toFixed(1) : "--"}
+            {score !== null ? `${score.toFixed(0)}%` : "--"}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">Média da avaliação mais recente</p>
         </CardContent>

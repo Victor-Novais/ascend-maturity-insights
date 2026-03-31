@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import RadarChartComponent from "@/components/RadarChartComponent";
 import ReportSummary from "@/components/ReportSummary";
 import { assessmentFlowApi } from "@/services/api";
+import { ApiError } from "@/lib/api";
 
 const maturityDescription: Record<string, string> = {
   ARTESANAL: "Processos informais e não padronizados",
@@ -33,9 +34,12 @@ export default function AssessmentReportPage() {
   }
 
   if (reportQuery.isError || !reportQuery.data) {
+    const isNotFinalized = reportQuery.error instanceof ApiError && reportQuery.error.status === 404;
     return (
       <div className="ascend-card py-16 text-center text-destructive">
-        {(reportQuery.error as Error)?.message ?? "Falha ao carregar resultado."}
+        {isNotFinalized
+          ? "Avaliação ainda não finalizada"
+          : (reportQuery.error as Error)?.message ?? "Falha ao carregar resultado."}
       </div>
     );
   }
