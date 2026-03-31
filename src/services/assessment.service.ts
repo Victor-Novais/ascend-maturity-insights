@@ -1,11 +1,11 @@
 import { api } from "@/lib/api";
-import type {
-  AssessmentWithRelations,
-  CreateAssessmentRequest,
-  UpsertAssessmentResponsesRequest,
-} from "@/lib/types";
+import type { AssessmentWithRelations, CreateAssessmentRequest } from "@/lib/types";
 
-export const assessmentsService = {
+/**
+ * Assessment instances (backend: GET/POST /assessments).
+ * Listing is role-scoped (collaborators only see assigned assessments).
+ */
+export const assessmentService = {
   list() {
     return api.get<AssessmentWithRelations[]>("/assessments");
   },
@@ -15,13 +15,8 @@ export const assessmentsService = {
   create(payload: CreateAssessmentRequest) {
     return api.post<AssessmentWithRelations>("/assessments", payload);
   },
-  upsertResponses(assessmentId: number, payload: UpsertAssessmentResponsesRequest) {
-    return api.put<AssessmentWithRelations>(
-      `/assessments/${assessmentId}/responses`,
-      payload,
-    );
-  },
-  submit(assessmentId: number) {
+  /** Legacy single-evaluator flow: closes assessment and triggers scoring. */
+  submitLegacy(assessmentId: number) {
     return api.post<unknown>(`/assessments/${assessmentId}/submit`);
   },
 };

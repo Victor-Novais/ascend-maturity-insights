@@ -1,8 +1,10 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAssessments, useCreateAssessment } from "@/hooks/useAssessments";
+import { useQuestionnaireTemplates } from "@/hooks/useQuestionnaires";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useAuth } from "@/contexts/AuthContext";
+import type { AssessmentWithRelations } from "@/lib/types";
 import { SkeletonTable } from "@/components/ui/skeleton-card";
 import { Button } from "@/components/ui/button";
 import { Plus, ClipboardCheck, BarChart3 } from "lucide-react";
@@ -13,14 +15,14 @@ export default function AssessmentsPage() {
   const navigate = useNavigate();
   const { data: assessments, isLoading } = useAssessments();
   const { data: companies } = useCompanies();
+  const { data: templates, isLoading: loadingTemplates } = useQuestionnaireTemplates();
   const createAssessment = useCreateAssessment();
   const [showCreate, setShowCreate] = useState(false);
   const [companyId, setCompanyId] = useState<number>(0);
+  const [templateId, setTemplateId] = useState<number>(0);
 
   const canCreateAssessment =
-    user?.role === "ADMIN" ||
-    user?.role === "AVALIADOR" ||
-    user?.role === "CLIENTE";
+    user?.role === "ADMIN" || user?.role === "AVALIADOR" || user?.role === "CLIENTE";
 
   useEffect(() => {
     if (companies?.length === 1 && companyId === 0) {
@@ -28,8 +30,28 @@ export default function AssessmentsPage() {
     }
   }, [companies, companyId]);
 
-  const getCompanyName = (companyId: number) =>
-    companies?.find((c) => c.id === companyId)?.name || `Empresa #${companyId}`;
+  useEffect(() => {
+    if (templates?.length === 1 && templateId === 0) {
+      setTemplateId(templates[0].id);
+    }
+  }, [templates, templateId]);
+
+  const getCompanyName = (cid: number) =>
+    companies?.find((c) => c.id === cid)?.name || `Empresa #${cid}`;
+
+  const getTemplateLabel = (assessment: AssessmentWithRelations) => {
+    const t = assessment.questionnaireTemplate;
+    if (t && "name" in t) return t.name;
+    return "—";
+  };
+
+  const progressLabel = (assessment: AssessmentWithRelations) => {
+    if (!assessment.questionnaireTemplateId || !assessment.assignments?.length) return null;
+    const total = assessment.assignments.length;
+    const done = assessment.assignments.filter((a) => a.status === "SUBMITTED").length;
+    return `${done}/${total} colaboradores`;
+  };
+
   const handleCreateAssessment = async () => {
     if (!companyId) {
       toast.error("Selecione uma empresa");
@@ -37,10 +59,18 @@ export default function AssessmentsPage() {
     }
 
     try {
-      const assessment = await createAssessment.mutateAsync({ companyId });
-      toast.success("Avaliação automática iniciada");
+      const payload =
+        templateId > 0
+          ? { companyId, questionnaireTemplateId: templateId }
+          : { companyId };
+
+      const assessment = await createAssessment.mutateAsync(payload);
+      toast.success(
+        templateId > 0 ? "Avaliação criada e atribuída aos colaboradores" : "Avaliação legada iniciada",
+      );
       setShowCreate(false);
-      setCompanyId(0);
+      setCompanyId(companies?.length === 1 ? companies[0].id : 0);
+      setTemplateId(0);
       navigate(`/dashboard/assessments/${assessment.id}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Erro ao criar avaliação";
@@ -53,11 +83,13 @@ export default function AssessmentsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Avaliações</h1>
-          <p className="text-muted-foreground text-sm mt-1">Gerencie as avaliações de maturidade</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            Instâncias por empresa; templates globais e fechamento automático no servidor
+          </p>
         </div>
         {canCreateAssessment && (
           <Button className="rounded-lg h-10" onClick={() => setShowCreate((prev) => !prev)}>
-            <Plus className="w-4 h-4 mr-2" /> Nova Avaliação
+            <Plus className="w-4 h-4 mr-2" /> Nova avaliação
           </Button>
         )}
       </div>
@@ -77,13 +109,33 @@ export default function AssessmentsPage() {
             ))}
           </select>
 
-          <Button
-            className="rounded-lg"
-            onClick={handleCreateAssessment}
-            disabled={createAssessment.isPending}
+          <select
+            className="ascend-input w-full"
+            value={templateId || ""}
+            onChange={(e) => setTemplateId(Number(e.target.value))}
+            disabled={loadingTemplates}
           >
-            {createAssessment.isPending ? "Iniciando..." : "Iniciar diagnóstico automático"}
-          </Button>
+            <option value="">Modelo de questionário (opcional — legado sem template)</option>
+            {(templates || []).filter((t) => t.isActive).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+
+          <div className="md:col-span-2 flex flex-wrap gap-2">
+            <Button
+              className="rounded-lg"
+              onClick={() => void handleCreateAssessment()}
+              disabled={createAssessment.isPending}
+            >
+              {createAssessment.isPending ? "Criando..." : "Criar avaliação"}
+            </Button>
+            <p className="text-xs text-muted-foreground w-full">
+              Com modelo selecionado, a avaliação é distribuída automaticamente aos colaboradores da empresa.
+              É necessário pelo menos um colaborador vinculado.
+            </p>
+          </div>
         </div>
       )}
 
@@ -97,8 +149,18 @@ export default function AssessmentsPage() {
                 <tr className="border-b border-border bg-muted/40">
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">ID</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Empresa</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Nível</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">
+                    Modelo
+                  </th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">
+                    Status
+                  </th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden xl:table-cell">
+                    Progresso
+                  </th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">
+                    Nível
+                  </th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">Ações</th>
                 </tr>
               </thead>
@@ -107,12 +169,20 @@ export default function AssessmentsPage() {
                   <tr key={a.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3 font-medium">#{a.id}</td>
                     <td className="px-4 py-3 text-foreground">{getCompanyName(a.companyId)}</td>
+                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell max-w-[200px] truncate">
+                      {getTemplateLabel(a)}
+                    </td>
                     <td className="px-4 py-3 hidden sm:table-cell">
-                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                        a.status === "SUBMITTED" ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
-                      }`}>
-                        {a.status === "SUBMITTED" ? "Concluída" : "Em progresso"}
+                      <span
+                        className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                          a.status === "SUBMITTED" ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                        }`}
+                      >
+                        {a.status === "SUBMITTED" ? "Concluída" : a.status === "NOT_STARTED" ? "Não iniciada" : "Em progresso"}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground hidden xl:table-cell text-xs">
+                      {progressLabel(a) || "—"}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
                       {a.maturityLevel || "—"}
@@ -125,6 +195,8 @@ export default function AssessmentsPage() {
                               <ClipboardCheck className="w-4 h-4" />
                             </Link>
                           </Button>
+                        ) : user?.role === "COLLABORATOR" ? (
+                          <span className="text-xs text-muted-foreground px-2">Concluída</span>
                         ) : (
                           <Button variant="ghost" size="icon" asChild className="h-8 w-8 rounded-lg">
                             <Link to={`/dashboard/reports/${a.id}`}>

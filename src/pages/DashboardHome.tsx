@@ -5,6 +5,11 @@ import { useAssessments } from "@/hooks/useAssessments";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
 import { Building2, ClipboardCheck, TrendingUp, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  getCategoryScores,
+  getTotalScoreNumber,
+  normalizeRecommendations,
+} from "@/lib/report-utils";
 
 export default function DashboardHome() {
   const { user } = useAuth();
@@ -120,16 +125,18 @@ export default function DashboardHome() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold">
-                      {latest!.totalScore ? Number(latest!.totalScore).toFixed(1) : "—"}
+                      {getTotalScoreNumber(latest!) !== null
+                        ? getTotalScoreNumber(latest!)!.toFixed(1)
+                        : "—"}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {latest!.maturityLevel || "Nível indisponível"}
                     </p>
                   </div>
                 </div>
-                {latest!.categoryScores && (
+                {getCategoryScores(latest!) && (
                   <div className="space-y-1">
-                    {Object.entries(latest!.categoryScores).map(([category, score]) => (
+                    {Object.entries(getCategoryScores(latest!)!).map(([category, score]) => (
                       <div key={category} className="flex items-center gap-2">
                         <span className="text-[11px] text-muted-foreground w-24">{category}</span>
                         <div className="flex-1 h-1.5 bg-background rounded-full overflow-hidden">
@@ -139,9 +146,9 @@ export default function DashboardHome() {
                     ))}
                   </div>
                 )}
-                {(latest!.recommendations || []).length > 0 && (
+                {normalizeRecommendations(latest!.report?.recommendations).length > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Recomendação: {latest!.recommendations![0]}
+                    Recomendação: {normalizeRecommendations(latest!.report?.recommendations)[0]}
                   </p>
                 )}
               </div>

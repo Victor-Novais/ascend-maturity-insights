@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { assessmentsService } from "@/services/assessments.service";
+import { assessmentService } from "@/services/assessment.service";
+import { answerService } from "@/services/answer.service";
 import { questionsService } from "@/services/questions.service";
 import type {
   CreateAssessmentRequest,
@@ -9,14 +10,14 @@ import type {
 export function useAssessments() {
   return useQuery({
     queryKey: ["assessments"],
-    queryFn: assessmentsService.list,
+    queryFn: assessmentService.list,
   });
 }
 
 export function useAssessment(id: number) {
   return useQuery({
     queryKey: ["assessments", id],
-    queryFn: () => assessmentsService.getById(id),
+    queryFn: () => assessmentService.getById(id),
     enabled: Number.isFinite(id) && id > 0,
   });
 }
@@ -24,7 +25,7 @@ export function useAssessment(id: number) {
 export function useCreateAssessment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: CreateAssessmentRequest) => assessmentsService.create(payload),
+    mutationFn: (payload: CreateAssessmentRequest) => assessmentService.create(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assessments"] });
     },
@@ -40,7 +41,7 @@ export function useUpsertAssessmentResponses() {
     }: {
       assessmentId: number;
       payload: UpsertAssessmentResponsesRequest;
-    }) => assessmentsService.upsertResponses(assessmentId, payload),
+    }) => answerService.upsertResponses(assessmentId, payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["assessments"] });
       queryClient.invalidateQueries({
@@ -50,6 +51,29 @@ export function useUpsertAssessmentResponses() {
   });
 }
 
+export function useParticipantSubmit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (assessmentId: number) => answerService.participantSubmit(assessmentId),
+    onSuccess: (_, assessmentId) => {
+      queryClient.invalidateQueries({ queryKey: ["assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["assessments", assessmentId] });
+    },
+  });
+}
+
+export function useSubmitLegacyAssessment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (assessmentId: number) => assessmentService.submitLegacy(assessmentId),
+    onSuccess: (_, assessmentId) => {
+      queryClient.invalidateQueries({ queryKey: ["assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["assessments", assessmentId] });
+    },
+  });
+}
+
+/** Legacy global question bank (no template). */
 export function useQuestions() {
   return useQuery({
     queryKey: ["questions"],
