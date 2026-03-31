@@ -93,7 +93,7 @@ export interface QuestionnaireTemplateWithQuestions extends QuestionnaireTemplat
   questions: QuestionTemplate[];
 }
 
-export type AssessmentAssignmentStatus = "PENDING" | "SUBMITTED";
+export type AssessmentAssignmentStatus = string;
 
 export interface AssessmentAssignment {
   id: number;
@@ -111,7 +111,7 @@ export interface AssessmentEvidenceFile {
   uploadedAt: string;
 }
 
-export type AssessmentStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" | "SUBMITTED";
+export type AssessmentStatus = string;
 export type MaturityLevel = "ARTESANAL" | "EFICIENTE" | "EFICAZ" | "ESTRATEGICO";
 
 /** Persisted report row + JSON fields from backend. */
@@ -182,7 +182,7 @@ export interface AssessmentWithRelations extends Assessment {
 export interface CreateAssessmentRequest {
   companyId: number;
   /** When set, backend creates assignments for all company collaborators. */
-  questionnaireTemplateId?: number;
+  questionnaireTemplateId: number;
 }
 
 export interface EvidenceFileInput {

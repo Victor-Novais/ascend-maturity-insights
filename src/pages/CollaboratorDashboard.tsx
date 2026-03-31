@@ -14,9 +14,13 @@ export default function CollaboratorDashboard() {
   const { user } = useAuth();
   const { data: assessments, isLoading: loadingAssessments } = useMyAssessments();
 
-  // Show all assigned assessments except those explicitly marked as SUBMITTED.
-  // Backend may use intermediate statuses like ASSIGNED/ACTIVE, so we shouldn't hardcode them here.
-  const activeAssessments = assessments?.filter((a) => a.status !== "SUBMITTED") || [];
+  // Show all assessments where this collaborator assignment is not SUBMITTED.
+  // All other status lifecycle decisions must come from the backend.
+  const activeAssessments =
+    assessments?.filter((a) => {
+      const myAssignment = a.assignments?.find((as) => as.userId === user?.id);
+      return myAssignment?.status !== "SUBMITTED";
+    }) || [];
   const isLoading = loadingAssessments;
 
   return (
@@ -50,7 +54,9 @@ export default function CollaboratorDashboard() {
                     <p className="text-xs text-muted-foreground">
                       {a.questionnaireTemplate?.name ?? "Avaliação"}
                       {a.company?.name ? ` · ${a.company.name}` : ""}
-                      {` · Status: ${a.status}`}
+                      {` · Status: ${
+                        a.assignments?.find((as) => as.userId === user?.id)?.status ?? a.status
+                      }`}
                     </p>
                   </div>
                 </div>
@@ -65,7 +71,7 @@ export default function CollaboratorDashboard() {
         ) : (
           <div className="ascend-card flex flex-col items-center justify-center py-10 text-center">
             <CheckCircle2 className="w-10 h-10 text-success/40 mb-3" />
-            <p className="text-sm text-muted-foreground">Nenhuma avaliação pendente no momento.</p>
+            <p className="text-sm text-muted-foreground">Nenhuma avaliação disponível para responder no momento.</p>
           </div>
         )}
       </div>

@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { assessmentService } from "@/services/assessment.service";
 import { answerService } from "@/services/answer.service";
-import { questionsService } from "@/services/questions.service";
 import type {
   CreateAssessmentRequest,
   UpsertAssessmentResponsesRequest,
@@ -81,13 +80,5 @@ export function useSubmitLegacyAssessment() {
       queryClient.invalidateQueries({ queryKey: ["assessments-my"] });
       queryClient.invalidateQueries({ queryKey: ["assessment-detail", assessmentId] });
     },
-  });
-}
-
-/** Legacy global question bank (no template). */
-export function useQuestions() {
-  return useQuery({
-    queryKey: ["questions"],
-    queryFn: questionsService.list,
   });
 }

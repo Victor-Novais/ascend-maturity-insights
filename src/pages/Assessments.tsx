@@ -50,20 +50,21 @@ export default function AssessmentsPage() {
       toast.error("Selecione uma empresa");
       return;
     }
+    if (!templateId) {
+      toast.error("Selecione um modelo de questionário");
+      return;
+    }
 
     try {
-      const payload =
-        templateId > 0
-          ? { companyId, questionnaireTemplateId: templateId }
-          : { companyId };
+      const payload = { companyId, questionnaireTemplateId: templateId };
 
       const assessment = await createAssessment.mutateAsync(payload);
-      toast.success(
-        templateId > 0 ? "Avaliação criada e atribuída aos colaboradores" : "Avaliação legada iniciada",
-      );
+      toast.success("Avaliação criada e atribuída aos colaboradores");
       setShowCreate(false);
       setCompanyId(companies?.length === 1 ? companies[0].id : 0);
-      setTemplateId(0);
+      setTemplateId(
+        companies?.length === 1 && templates?.length === 1 ? templates?.[0]?.id ?? 0 : 0,
+      );
       navigate(`/dashboard/assessments/${assessment.id}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Erro ao criar avaliação";
@@ -108,7 +109,7 @@ export default function AssessmentsPage() {
             onChange={(e) => setTemplateId(Number(e.target.value))}
             disabled={loadingTemplates}
           >
-            <option value="">Modelo de questionário (opcional — legado sem template)</option>
+            <option value="">Selecione um modelo de questionário</option>
             {(templates || []).filter((t) => t.isActive).map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}

@@ -42,18 +42,14 @@ function getQuestionnaireQuestions(assessment: AssessmentWithTemplateQuestions |
   return [];
 }
 
-function normalizeType(q: QuestionTemplate): "text" | "multiple_choice" | "scale" {
+function normalizeType(q: QuestionTemplate): "text" | "multiple_choice" | "scale" | null {
   const t = q.type ?? undefined;
-  if (!t) {
-    // Map from backend fields if `type` isn't present.
-    // This is still based on backend-provided data, not local business logic.
-    if (q.responseType === "SCALE") return "scale";
-    return "multiple_choice";
-  }
+  if (!t) return null;
   const lowered = t.toLowerCase();
   if (lowered.includes("text")) return "text";
   if (lowered.includes("scale")) return "scale";
-  return "multiple_choice";
+  if (lowered.includes("multi") || lowered.includes("choice")) return "multiple_choice";
+  return null;
 }
 
 export default function AssessmentStepper() {
@@ -322,7 +318,7 @@ export default function AssessmentStepper() {
                   />
                 )}
 
-                {qType !== "text" && q.options?.length > 0 && (
+                {(qType === "multiple_choice" || qType === "scale") && q.options?.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {q.options
                       .slice()
@@ -350,6 +346,12 @@ export default function AssessmentStepper() {
                         );
                       })}
                   </div>
+                )}
+
+                {qType === null && (
+                  <p className="text-xs text-warning mt-1">
+                    Tipo da pergunta não informado pelo backend.
+                  </p>
                 )}
 
                 {q.evidenceRequired && (
