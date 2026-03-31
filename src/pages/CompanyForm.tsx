@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useCompany, useCreateCompany, useUpdateCompany } from "@/hooks/useCompanies";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ArrowLeft, Save } from "lucide-react";
@@ -18,6 +19,7 @@ export default function CompanyForm() {
   const { id } = useParams();
   const isEditing = !!id;
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: existing, isLoading } = useCompany(Number(id));
   const createMutation = useCreateCompany();
   const updateMutation = useUpdateCompany();
@@ -82,6 +84,10 @@ export default function CompanyForm() {
 
   const updateField = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
+
+  if (!isEditing && user?.role === "COLLABORATOR") {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   if (isEditing && isLoading) return <SkeletonCard />;
 

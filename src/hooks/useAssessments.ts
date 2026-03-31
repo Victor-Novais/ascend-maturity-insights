@@ -40,7 +40,7 @@ export function useUpsertAssessmentResponses() {
     }: {
       assessmentId: number;
       payload: UpsertAssessmentResponsesRequest;
-    }) => assessmentsService.upsertResponses({ ...payload, assessmentId }),
+    }) => assessmentsService.upsertResponses(assessmentId, payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["assessments"] });
       queryClient.invalidateQueries({

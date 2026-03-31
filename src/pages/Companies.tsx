@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useCompanies, useDeleteCompany } from "@/hooks/useCompanies";
+import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonTable } from "@/components/ui/skeleton-card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Plus, Search, Building2, Trash2, Pencil, Eye } from "lucide-react";
+import { Plus, Search, Building2, Trash2, Pencil, Eye, Copy } from "lucide-react";
 import { toast } from "sonner";
 import type { CompanySize } from "@/lib/types";
 
@@ -15,16 +16,31 @@ const sizeLabels: Record<CompanySize, string> = {
 };
 
 export default function CompaniesPage() {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const { data: companies, isLoading } = useCompanies();
   const deleteMutation = useDeleteCompany();
+
+  const isCollaborator = user?.role === "COLLABORATOR";
+  const canManageCompanies =
+    user?.role === "ADMIN" || user?.role === "AVALIADOR" || user?.role === "CLIENTE";
 
   const filtered = companies?.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.cnpj?.includes(search) ||
-      c.segment?.toLowerCase().includes(search.toLowerCase())
+      c.segment?.toLowerCase().includes(search.toLowerCase()) ||
+      (c.companyCode?.toLowerCase().includes(search.toLowerCase()) ?? false)
   );
+
+  const copyCompanyCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      toast.success("Código copiado para a área de transferência");
+    } catch {
+      toast.error("Não foi possível copiar o código");
+    }
+  };
 
   const handleDelete = async (id: number, name: string) => {
     if (!confirm(`Tem certeza que deseja excluir "${name}"?`)) return;
@@ -42,22 +58,26 @@ export default function CompaniesPage() {
         <div>
           <h1 className="text-2xl font-bold">Empresas</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Gerencie as empresas cadastradas na plataforma
+            {isCollaborator
+              ? "Empresas às quais você tem acesso"
+              : "Gerencie as empresas cadastradas na plataforma"}
           </p>
         </div>
-        <Button asChild className="rounded-lg h-10">
-          <Link to="/dashboard/companies/new">
-            <Plus className="w-4 h-4 mr-2" />
-            Nova Empresa
-          </Link>
-        </Button>
+        {canManageCompanies && (
+          <Button asChild className="rounded-lg h-10">
+            <Link to="/dashboard/companies/new">
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Empresa
+            </Link>
+          </Button>
+        )}
       </div>
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input
           type="text"
-          placeholder="Buscar por nome, CNPJ ou segmento..."
+          placeholder="Buscar por nome, CNPJ, código ou segmento..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="ascend-input w-full pl-10"
@@ -73,6 +93,9 @@ export default function CompaniesPage() {
               <thead>
                 <tr className="border-b border-border bg-muted/40">
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground">Nome</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+                    <span title="Compartilhe com colaboradores no cadastro">Código</span>
+                  </th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Segmento</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Porte</th>
                   <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Responsável</th>
@@ -93,6 +116,27 @@ export default function CompaniesPage() {
                         <span className="font-medium text-foreground">{company.name}</span>
                       </div>
                     </td>
+                    <td className="px-4 py-3">
+                      {company.companyCode ? (
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-mono text-sm font-semibold tracking-wide truncate">
+                            {company.companyCode}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0 rounded-lg"
+                            title="Copiar código"
+                            onClick={() => copyCompanyCode(company.companyCode!)}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{company.segment}</td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
@@ -107,19 +151,23 @@ export default function CompaniesPage() {
                             <Eye className="w-4 h-4" />
                           </Link>
                         </Button>
-                        <Button variant="ghost" size="icon" asChild className="h-8 w-8 rounded-lg">
-                          <Link to={`/dashboard/companies/${company.id}/edit`}>
-                            <Pencil className="w-4 h-4" />
-                          </Link>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-lg text-destructive hover:text-destructive"
-                          onClick={() => handleDelete(company.id, company.name)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {canManageCompanies && (
+                          <>
+                            <Button variant="ghost" size="icon" asChild className="h-8 w-8 rounded-lg">
+                              <Link to={`/dashboard/companies/${company.id}/edit`}>
+                                <Pencil className="w-4 h-4" />
+                              </Link>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-lg text-destructive hover:text-destructive"
+                              onClick={() => handleDelete(company.id, company.name)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

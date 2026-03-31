@@ -15,7 +15,13 @@ export const assessmentsService = {
   create(payload: CreateAssessmentRequest) {
     return api.post<AssessmentWithRelations>("/assessments", payload);
   },
-  upsertResponses(payload: UpsertAssessmentResponsesRequest) {
-    return api.post<AssessmentWithRelations>("/responses", payload);
+  upsertResponses(assessmentId: number, payload: UpsertAssessmentResponsesRequest) {
+    return api.put<AssessmentWithRelations>(
+      `/assessments/${assessmentId}/responses`,
+      payload,
+    );
+  },
+  submit(assessmentId: number) {
+    return api.post<unknown>(`/assessments/${assessmentId}/submit`);
   },
 };

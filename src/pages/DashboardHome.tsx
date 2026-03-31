@@ -1,11 +1,14 @@
+import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useAssessments } from "@/hooks/useAssessments";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
 import { Building2, ClipboardCheck, TrendingUp, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function DashboardHome() {
   const { user } = useAuth();
+  const isOwner = user?.role === "CLIENTE";
   const { data: companies, isLoading: loadingCompanies } = useCompanies();
   const { data: assessments, isLoading: loadingAssessments } = useAssessments();
 
@@ -63,6 +66,20 @@ export default function DashboardHome() {
           Aqui está um resumo da sua plataforma ASCEND.
         </p>
       </div>
+
+      {isOwner && companies && companies.length === 0 && !loadingCompanies && (
+        <div className="ascend-card border-primary/30 bg-primary/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <p className="font-semibold text-foreground">Cadastre sua empresa</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Como proprietário (CLIENTE), crie a empresa no painel para gerar o código de convite e iniciar avaliações.
+            </p>
+          </div>
+          <Button asChild className="rounded-lg shrink-0">
+            <Link to="/dashboard/companies/new">Cadastrar empresa</Link>
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {isLoading

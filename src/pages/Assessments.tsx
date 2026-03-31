@@ -1,19 +1,32 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAssessments, useCreateAssessment } from "@/hooks/useAssessments";
 import { useCompanies } from "@/hooks/useCompanies";
+import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonTable } from "@/components/ui/skeleton-card";
 import { Button } from "@/components/ui/button";
 import { Plus, ClipboardCheck, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AssessmentsPage() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { data: assessments, isLoading } = useAssessments();
   const { data: companies } = useCompanies();
   const createAssessment = useCreateAssessment();
   const [showCreate, setShowCreate] = useState(false);
   const [companyId, setCompanyId] = useState<number>(0);
+
+  const canCreateAssessment =
+    user?.role === "ADMIN" ||
+    user?.role === "AVALIADOR" ||
+    user?.role === "CLIENTE";
+
+  useEffect(() => {
+    if (companies?.length === 1 && companyId === 0) {
+      setCompanyId(companies[0].id);
+    }
+  }, [companies, companyId]);
 
   const getCompanyName = (companyId: number) =>
     companies?.find((c) => c.id === companyId)?.name || `Empresa #${companyId}`;
@@ -42,12 +55,14 @@ export default function AssessmentsPage() {
           <h1 className="text-2xl font-bold">Avaliações</h1>
           <p className="text-muted-foreground text-sm mt-1">Gerencie as avaliações de maturidade</p>
         </div>
-        <Button className="rounded-lg h-10" onClick={() => setShowCreate((prev) => !prev)}>
+        {canCreateAssessment && (
+          <Button className="rounded-lg h-10" onClick={() => setShowCreate((prev) => !prev)}>
             <Plus className="w-4 h-4 mr-2" /> Nova Avaliação
-        </Button>
+          </Button>
+        )}
       </div>
 
-      {showCreate && (
+      {showCreate && canCreateAssessment && (
         <div className="ascend-card grid grid-cols-1 md:grid-cols-2 gap-3">
           <select
             className="ascend-input w-full"

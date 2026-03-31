@@ -5,7 +5,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Eye, EyeOff, ArrowRight, ArrowLeft, BarChart3, Building2, Users } from "lucide-react";
-import type { CompanySize } from "@/lib/types";
 
 type UserType = "CLIENTE" | "COLLABORATOR" | null;
 
@@ -18,12 +17,6 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // CLIENTE fields
-  const [companyName, setCompanyName] = useState("");
-  const [companySegment, setCompanySegment] = useState("");
-  const [companySize, setCompanySize] = useState<CompanySize | "">("");
-
-  // COLLABORATOR fields
   const [companyCode, setCompanyCode] = useState("");
 
   const navigate = useNavigate();
@@ -45,40 +38,40 @@ export default function RegisterPage() {
       toast.error("A senha deve ter pelo menos 6 caracteres");
       return;
     }
-    if (userType === "CLIENTE" && (!companyName.trim() || !companySegment.trim())) {
-      toast.error("Preencha o nome e segmento da empresa");
-      return;
-    }
     if (userType === "COLLABORATOR" && !companyCode.trim()) {
       toast.error("Informe o código da empresa");
       return;
     }
 
     try {
-      const payload: any = {
-        name,
-        email,
-        password,
-        userType,
-        ...(userType === "CLIENTE" && {
-          companyName,
-          companySegment,
-          ...(companySize && { companySize }),
-        }),
-        ...(userType === "COLLABORATOR" && { companyCode }),
-      };
-      const result = await registerMutation.mutateAsync(payload);
+      const body =
+        userType === "CLIENTE"
+          ? {
+              name,
+              email,
+              password,
+              userType: "CLIENTE" as const,
+            }
+          : {
+              name,
+              email,
+              password,
+              userType: "COLLABORATOR" as const,
+              companyCode: companyCode.trim(),
+            };
+
+      const result = await registerMutation.mutateAsync(body);
       login(result.accessToken);
       toast.success("Conta criada com sucesso!");
       navigate("/dashboard");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao criar conta");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao criar conta";
+      toast.error(message);
     }
   };
 
   return (
     <div className="min-h-screen flex">
-      {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 ascend-gradient items-center justify-center p-12">
         <div className="max-w-md text-primary-foreground animate-fade-in">
           <div className="flex items-center gap-3 mb-8">
@@ -91,23 +84,21 @@ export default function RegisterPage() {
             {step === 1
               ? "Comece sua jornada de evolução"
               : userType === "CLIENTE"
-              ? "Configure sua empresa"
-              : "Entre na equipe"}
+                ? "Conta de proprietário"
+                : "Entre na equipe"}
           </h1>
           <p className="text-lg opacity-80 leading-relaxed">
             {step === 1
               ? "Escolha como deseja usar a plataforma ASCEND para avaliação de maturidade empresarial."
               : userType === "CLIENTE"
-              ? "Crie sua empresa e receba um código para convidar colaboradores."
-              : "Use o código da empresa para se juntar à equipe e participar das avaliações."}
+                ? "Cadastre-se como dono da empresa. Depois você poderá criar a empresa e o código de convite no painel."
+                : "Use o código fornecido pela empresa para vincular sua conta ao tenant correto."}
           </p>
         </div>
       </div>
 
-      {/* Right panel */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-md animate-fade-in">
-          {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-10">
             <div className="w-10 h-10 rounded-xl ascend-gradient flex items-center justify-center">
               <BarChart3 className="w-5 h-5 text-primary-foreground" />
@@ -122,6 +113,7 @@ export default function RegisterPage() {
 
               <div className="space-y-4">
                 <button
+                  type="button"
                   onClick={() => handleSelectType("CLIENTE")}
                   className="w-full ascend-card !p-5 flex items-start gap-4 text-left hover:border-primary/40 transition-colors cursor-pointer group"
                 >
@@ -129,15 +121,16 @@ export default function RegisterPage() {
                     <Building2 className="w-6 h-6 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-semibold text-foreground">Sou dono de empresa</p>
+                    <p className="font-semibold text-foreground">Sou dono de empresa (CLIENTE)</p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Crie sua empresa, gerencie avaliações e convide colaboradores com um código exclusivo.
+                      Crie sua conta e, em seguida, cadastre a empresa no painel e convide colaboradores.
                     </p>
                   </div>
                   <ArrowRight className="w-5 h-5 text-muted-foreground mt-1 group-hover:text-primary transition-colors" />
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => handleSelectType("COLLABORATOR")}
                   className="w-full ascend-card !p-5 flex items-start gap-4 text-left hover:border-primary/40 transition-colors cursor-pointer group"
                 >
@@ -147,7 +140,7 @@ export default function RegisterPage() {
                   <div className="flex-1">
                     <p className="font-semibold text-foreground">Sou colaborador</p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Entre com o código da empresa e participe das avaliações de maturidade.
+                      Entre com o código da empresa para participar das avaliações da sua organização.
                     </p>
                   </div>
                   <ArrowRight className="w-5 h-5 text-muted-foreground mt-1 group-hover:text-primary transition-colors" />
@@ -157,6 +150,7 @@ export default function RegisterPage() {
           ) : (
             <>
               <button
+                type="button"
                 onClick={() => setStep(1)}
                 className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
               >
@@ -164,11 +158,11 @@ export default function RegisterPage() {
               </button>
 
               <h2 className="text-2xl font-bold text-foreground mb-1">
-                {userType === "CLIENTE" ? "Dados da empresa" : "Entrar como colaborador"}
+                {userType === "CLIENTE" ? "Seus dados" : "Dados e código da empresa"}
               </h2>
               <p className="text-muted-foreground mb-8">
                 {userType === "CLIENTE"
-                  ? "Preencha seus dados e os da sua empresa"
+                  ? "Apenas sua conta — a empresa será cadastrada depois no dashboard."
                   : "Preencha seus dados e o código da empresa"}
               </p>
 
@@ -215,51 +209,7 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
-                {/* Divider */}
-                <div className="pt-2 pb-1">
-                  <div className="h-px bg-border" />
-                </div>
-
-                {userType === "CLIENTE" ? (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">Nome da empresa</label>
-                      <input
-                        type="text"
-                        value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
-                        className="ascend-input w-full"
-                        placeholder="Nome da sua empresa"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">Segmento</label>
-                      <input
-                        type="text"
-                        value={companySegment}
-                        onChange={(e) => setCompanySegment(e.target.value)}
-                        className="ascend-input w-full"
-                        placeholder="Ex: Tecnologia, Saúde, Varejo..."
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">
-                        Porte <span className="text-muted-foreground font-normal">(opcional)</span>
-                      </label>
-                      <select
-                        value={companySize}
-                        onChange={(e) => setCompanySize(e.target.value as CompanySize | "")}
-                        className="ascend-input w-full"
-                      >
-                        <option value="">Selecione o porte</option>
-                        <option value="MICRO">Micro</option>
-                        <option value="PEQUENA">Pequena</option>
-                        <option value="MEDIA">Média</option>
-                        <option value="GRANDE">Grande</option>
-                      </select>
-                    </div>
-                  </>
-                ) : (
+                {userType === "COLLABORATOR" && (
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1.5">Código da empresa</label>
                     <input

@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useCompany } from "@/hooks/useCompanies";
 import { useAssessments } from "@/hooks/useAssessments";
+import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
 import { Button } from "@/components/ui/button";
 import { Building2, ArrowLeft, Pencil, ClipboardCheck, MapPin, Phone, Mail, Hash } from "lucide-react";
@@ -14,6 +15,9 @@ const sizeLabels: Record<string, string> = {
 };
 
 export default function CompanyDetail() {
+  const { user } = useAuth();
+  const canEdit =
+    user?.role === "ADMIN" || user?.role === "AVALIADOR" || user?.role === "CLIENTE";
   const { id } = useParams();
   const { data: company, isLoading, error } = useCompany(Number(id));
   const { data: assessments } = useAssessments();
@@ -39,16 +43,27 @@ export default function CompanyDetail() {
           <h1 className="text-2xl font-bold">{company.name}</h1>
           <p className="text-sm text-muted-foreground">{company.segment} • {company.size ? sizeLabels[company.size] : "—"}</p>
         </div>
-        <Button asChild variant="outline" className="rounded-lg">
-          <Link to={`/dashboard/companies/${id}/edit`}>
-            <Pencil className="w-4 h-4 mr-2" /> Editar
-          </Link>
-        </Button>
+        {canEdit && (
+          <Button asChild variant="outline" className="rounded-lg">
+            <Link to={`/dashboard/companies/${id}/edit`}>
+              <Pencil className="w-4 h-4 mr-2" /> Editar
+            </Link>
+          </Button>
+        )}
       </div>
 
       <div className="ascend-card">
         <h2 className="text-lg font-semibold mb-4">Informações</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          {company.companyCode && (
+            <div className="flex items-start gap-3 sm:col-span-2">
+              <Hash className="w-4 h-4 text-muted-foreground mt-0.5" />
+              <div>
+                <p className="text-muted-foreground text-xs">Código da empresa (convite)</p>
+                <p className="font-mono font-semibold tracking-wide">{company.companyCode}</p>
+              </div>
+            </div>
+          )}
           <div className="flex items-start gap-3">
             <Hash className="w-4 h-4 text-muted-foreground mt-0.5" />
             <div>

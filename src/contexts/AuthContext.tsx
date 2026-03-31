@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: userData.id,
         email: userData.email,
         role: userData.role,
-        createdAt: "",
+        createdAt: userData.createdAt,
         name: userData.name ?? null,
       });
     } catch {

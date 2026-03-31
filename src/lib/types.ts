@@ -1,4 +1,4 @@
-export type UserRole = "ADMIN" | "CLIENTE" | "COLLABORATOR";
+export type UserRole = "ADMIN" | "AVALIADOR" | "CLIENTE" | "COLLABORATOR";
 
 export interface User {
   id: string;
@@ -12,6 +12,7 @@ export type CompanySize = "MICRO" | "PEQUENA" | "MEDIA" | "GRANDE";
 
 export interface Company {
   id: number;
+  companyCode?: string;
   name: string;
   segment: string;
   size: CompanySize | null;
@@ -131,7 +132,6 @@ export interface AssessmentResponseItemInput {
 }
 
 export interface UpsertAssessmentResponsesRequest {
-  assessmentId?: number;
   responses: AssessmentResponseItemInput[];
 }
 
@@ -167,12 +167,9 @@ export interface RegisterRequest {
   name: string;
   email: string;
   password: string;
-  role?: UserRole;
-  userType?: "CLIENTE" | "COLLABORATOR";
+  /** Backend enum: CLIENTE | COLLABORATOR */
+  userType: "CLIENTE" | "COLLABORATOR";
   companyCode?: string;
-  companyName?: string;
-  companySegment?: string;
-  companySize?: CompanySize;
 }
 
 export interface AuthResponse {

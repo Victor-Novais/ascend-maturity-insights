@@ -6,8 +6,7 @@ export interface MeResponse {
   name: string | null;
   email: string;
   role: UserRole;
-  companyId?: number;
-  companyName?: string;
+  createdAt: string;
 }
 
 export const authService = {
