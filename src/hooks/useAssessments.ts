@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { assessmentService } from "@/services/assessment.service";
 import { answerService } from "@/services/answer.service";
 import type {
+  SubmitAnswersRequest,
   CreateAssessmentRequest,
   UpsertAssessmentResponsesRequest,
 } from "@/lib/types";
@@ -24,6 +25,14 @@ export function useAssessment(id: number) {
   return useQuery({
     queryKey: ["assessment-detail", id],
     queryFn: () => assessmentService.getById(id),
+    enabled: Number.isFinite(id) && id > 0,
+  });
+}
+
+export function useAssessmentQuestions(id: number) {
+  return useQuery({
+    queryKey: ["assessment-questions", id],
+    queryFn: () => assessmentService.getQuestions(id),
     enabled: Number.isFinite(id) && id > 0,
   });
 }
@@ -67,6 +76,19 @@ export function useParticipantSubmit() {
       queryClient.invalidateQueries({ queryKey: ["assessments"] });
       queryClient.invalidateQueries({ queryKey: ["assessments-my"] });
       queryClient.invalidateQueries({ queryKey: ["assessment-detail", assessmentId] });
+    },
+  });
+}
+
+export function useSubmitAssessmentAnswers() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: SubmitAnswersRequest) => answerService.submitAnswers(payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["assessments"] });
+      queryClient.invalidateQueries({ queryKey: ["assessments-my"] });
+      queryClient.invalidateQueries({ queryKey: ["assessment-detail", variables.assessmentId] });
+      queryClient.invalidateQueries({ queryKey: ["assessment-questions", variables.assessmentId] });
     },
   });
 }

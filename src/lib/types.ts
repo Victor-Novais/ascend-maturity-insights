@@ -65,6 +65,19 @@ export interface QuestionTemplateOption {
   sortOrder: number;
 }
 
+export interface AssessmentQuestionOption {
+  id: number;
+  text: string;
+  weight: number;
+}
+
+export interface AssessmentQuestion {
+  id: number;
+  text: string;
+  category: QuestionCategory | string | null;
+  options: AssessmentQuestionOption[];
+}
+
 /** Question inside a global questionnaire template (backend QuestionTemplate). */
 export interface QuestionTemplate {
   id: number;
@@ -158,6 +171,8 @@ export interface AssessmentResponse {
   assessmentId: number;
   questionId: number | null;
   questionTemplateId: number | null;
+  assessmentQuestionId?: number | null;
+  selectedOptionId?: number | null;
   userId: string | null;
   questionVersion: number;
   responseValue: string;
@@ -204,6 +219,8 @@ export interface EvidenceFileInput {
 export interface AssessmentResponseItemInput {
   questionId?: number;
   questionTemplateId?: number;
+  assessmentQuestionId?: number;
+  selectedOptionId?: number;
   responseValue: string;
   evidence?: string;
   evidenceFileUrl?: string;
@@ -213,6 +230,14 @@ export interface AssessmentResponseItemInput {
 
 export interface UpsertAssessmentResponsesRequest {
   responses: AssessmentResponseItemInput[];
+}
+
+export interface SubmitAnswersRequest {
+  assessmentId: number;
+  answers: Array<{
+    assessmentQuestionId: number;
+    selectedOptionId: number;
+  }>;
 }
 
 export interface ReportPayload {

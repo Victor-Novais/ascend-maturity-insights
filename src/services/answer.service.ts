@@ -1,10 +1,17 @@
 import { api } from "@/lib/api";
-import type { AssessmentWithRelations, UpsertAssessmentResponsesRequest } from "@/lib/types";
+import type {
+  AssessmentWithRelations,
+  SubmitAnswersRequest,
+  UpsertAssessmentResponsesRequest,
+} from "@/lib/types";
 
 /**
  * Responses + collaborator finalization (backend: PUT /assessments/:id/responses, POST .../participant-submit).
  */
 export const answerService = {
+  submitAnswers(payload: SubmitAnswersRequest) {
+    return api.post<{ success?: boolean; assessmentId?: number }>("/answers", payload);
+  },
   upsertResponses(assessmentId: number, payload: UpsertAssessmentResponsesRequest) {
     return api.put<AssessmentWithRelations>(
       `/assessments/${assessmentId}/responses`,

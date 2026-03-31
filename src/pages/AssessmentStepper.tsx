@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useMemo, useState, type ComponentType } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -6,8 +6,8 @@ import { SkeletonCard } from "@/components/ui/skeleton-card";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAssessment, useParticipantSubmit, useUpsertAssessmentResponses } from "@/hooks/useAssessments";
-import type { MaturityLevel, QuestionCategory, QuestionTemplate } from "@/lib/types";
+import { useAssessment, useAssessmentQuestions, useSubmitAssessmentAnswers } from "@/hooks/useAssessments";
+import type { AssessmentQuestion, MaturityLevel, QuestionCategory } from "@/lib/types";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Cog, Lock, Shield, Server, Users } from "lucide-react";
 
 const categoryConfig: Record<QuestionCategory, { label: string; icon: ComponentType<{ className?: string }>; color: string }> = {
@@ -25,42 +25,17 @@ const maturityConfig: Record<MaturityLevel, { label: string; color: string; bg: 
   ESTRATEGICO: { label: "Estratégico", color: "text-success", bg: "bg-success/10" },
 };
 
-type LocalResponse = {
-  responseValue: string;
-  observation: string;
-  evidence: string;
-};
-
-function getQuestionnaireQuestions(
-  assessment: { questionnaireTemplate?: { questions?: QuestionTemplate[] | null } | null } | null | undefined,
-): QuestionTemplate[] {
-  const tmpl = assessment?.questionnaireTemplate;
-  if (!tmpl) return [];
-  if (Array.isArray(tmpl.questions)) return tmpl.questions;
-  return [];
-}
-
-function normalizeType(q: QuestionTemplate): "text" | "multiple_choice" | "scale" | null {
-  const t = q.type ?? undefined;
-  if (!t) return null;
-  const lowered = t.toLowerCase();
-  if (lowered.includes("text")) return "text";
-  if (lowered.includes("scale")) return "scale";
-  if (lowered.includes("multi") || lowered.includes("choice")) return "multiple_choice";
-  return null;
-}
-
 export default function AssessmentStepper() {
   const { id } = useParams();
   const assessmentId = Number(id);
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const { data: assessment, isLoading, error } = useAssessment(assessmentId);
-  const upsertResponses = useUpsertAssessmentResponses();
-  const submit = useParticipantSubmit();
-
-  const questions = useMemo(() => (assessment ? getQuestionnaireQuestions(assessment) : []), [assessment]);
+  const { data: assessment, isLoading: loadingAssessment, error } = useAssessment(assessmentId);
+  const { data: assessmentQuestions, isLoading: loadingQuestions } = useAssessmentQuestions(assessmentId);
+  const submitAnswers = useSubmitAssessmentAnswers();
+  const currentAssessment = assessment ?? null;
+  const questions = useMemo<AssessmentQuestion[]>(() => assessmentQuestions ?? [], [assessmentQuestions]);
 
   const myAssignment = useMemo(() => {
     if (!assessment?.assignments || !user?.id) return undefined;
@@ -68,111 +43,38 @@ export default function AssessmentStepper() {
   }, [assessment, user?.id]);
 
   const alreadySubmitted = myAssignment?.status === "SUBMITTED";
+  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const latestScore = currentAssessment?.totalScore != null ? Number(currentAssessment.totalScore) : null;
+  const maturity = currentAssessment?.maturityLevel
+    ? maturityConfig[currentAssessment.maturityLevel as MaturityLevel]
+    : null;
+  const isLoading = loadingAssessment || loadingQuestions;
+  const allQuestionsAnswered = questions.length > 0 && questions.every((q) => Number.isFinite(answers[q.id]));
+  const canSubmit = !alreadySubmitted && allQuestionsAnswered && !submitAnswers.isPending;
 
-  const [local, setLocal] = useState<Record<number, LocalResponse>>({});
-  const [saving, setSaving] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
-  // Pre-fill saved responses from backend for this user.
-  // (Presentation-only: no local scoring and no status inference.)
-  const prefilled = useMemo(() => {
-    if (!assessment || !user?.id) return {};
-    const out: Record<number, LocalResponse> = {};
-    for (const r of assessment.responses ?? []) {
-      if (r.questionTemplateId == null) continue;
-      if (r.userId !== user.id) continue;
-      out[r.questionTemplateId] = {
-        responseValue: r.responseValue ?? "",
-        observation: r.observation ?? "",
-        evidence: r.evidence ?? "",
-      };
-    }
-    return out;
-  }, [assessment, user?.id]);
-
-  useEffect(() => {
-    // Sync local draft once after backend prefilled responses are available.
-    if (alreadySubmitted) return;
-    if (Object.keys(local).length > 0) return;
-    if (Object.keys(prefilled).length === 0) return;
-    setLocal(prefilled);
-    // Intentionally ignore `local` updates beyond the initial mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefilled, alreadySubmitted]);
-
-  const latestScore = assessment?.totalScore != null ? Number(assessment.totalScore) : null;
-  const maturity = assessment?.maturityLevel ? maturityConfig[assessment.maturityLevel as MaturityLevel] : null;
-
-  const setValue = (questionId: number, patch: Partial<LocalResponse>) => {
-    setLocal((prev) => ({
+  const handleSelect = (questionId: number, optionId: number) => {
+    setAnswers((prev) => ({
       ...prev,
-      [questionId]: {
-        responseValue: prev[questionId]?.responseValue ?? "",
-        observation: prev[questionId]?.observation ?? "",
-        evidence: prev[questionId]?.evidence ?? "",
-        ...patch,
-      },
+      [questionId]: optionId,
     }));
   };
 
-  const saveOne = async (question: QuestionTemplate, nextValue: string) => {
-    if (!assessment) return;
-    try {
-      setSaving(true);
-      await upsertResponses.mutateAsync({
-        assessmentId,
-        payload: {
-          responses: [
-            {
-              questionTemplateId: question.id,
-              responseValue: nextValue,
-              observation: local[question.id]?.observation || undefined,
-              evidence: local[question.id]?.evidence || undefined,
-            },
-          ],
-        },
-      });
-      // Let react-query re-render from backend values (no local business logic).
-      // The hooks already invalidate `assessment-detail` on success.
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Erro ao salvar resposta";
-      if (e instanceof ApiError && e.status === 403) toast.error("Você não tem acesso a esta avaliação/empresa");
-      else toast.error(msg);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleSubmitFinal = async () => {
-    if (!assessment) return;
+    if (!currentAssessment) return;
     if (alreadySubmitted) return;
+    if (!allQuestionsAnswered) {
+      toast.error("Responda todas as perguntas antes de enviar.");
+      return;
+    }
+
     try {
-      setSubmitting(true);
-
-      const responsesToSave: Array<{
-        questionTemplateId: number;
-        responseValue: string;
-        observation?: string;
-        evidence?: string;
-      }> = [];
-
-      for (const q of questions) {
-        const r = local[q.id];
-        if (!r || !r.responseValue.trim()) continue;
-        responsesToSave.push({
-          questionTemplateId: q.id,
-          responseValue: r.responseValue,
-          observation: r.observation || undefined,
-          evidence: r.evidence || undefined,
-        });
-      }
-
-      await upsertResponses.mutateAsync({
+      await submitAnswers.mutateAsync({
         assessmentId,
-        payload: { responses: responsesToSave },
+        answers: Object.entries(answers).map(([qId, optId]) => ({
+          assessmentQuestionId: Number(qId),
+          selectedOptionId: optId,
+        })),
       });
-
-      await submit.mutateAsync(assessmentId);
       toast.success("Respostas enviadas. Obrigado!");
       navigate(`/dashboard/reports/${assessmentId}`);
     } catch (e) {
@@ -180,8 +82,6 @@ export default function AssessmentStepper() {
       if (e instanceof ApiError && e.status === 403) msg = "Você não tem acesso a esta empresa";
       if (e instanceof ApiError && e.status === 404) msg = "Assessment não encontrado";
       toast.error(msg);
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -201,7 +101,7 @@ export default function AssessmentStepper() {
       </div>
     );
   }
-  if (!assessment) {
+  if (!currentAssessment) {
     return (
       <div className="ascend-card text-center py-12">
         <p className="text-muted-foreground">Avaliação não encontrada.</p>
@@ -255,13 +155,8 @@ export default function AssessmentStepper() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold">Sua avaliação #{assessmentId}</h1>
           <p className="text-sm text-muted-foreground">
-            Status: <span className="font-medium text-foreground">{assessment.status}</span>
+            Status: <span className="font-medium text-foreground">{currentAssessment.status}</span>
           </p>
-          {assessment.questionnaireTemplate && "name" in assessment.questionnaireTemplate && (
-            <p className="text-sm text-muted-foreground">
-              Modelo: <span className="font-medium text-foreground">{assessment.questionnaireTemplate.name}</span>
-            </p>
-          )}
         </div>
       </div>
 
@@ -276,14 +171,12 @@ export default function AssessmentStepper() {
             </span>
           )}
         </div>
-        {saving && <p className="text-xs text-muted-foreground mt-2">Salvando resposta...</p>}
       </div>
 
       <div className="space-y-4">
         {questions.map((q, idx) => {
-          const cfg = categoryConfig[q.category];
-          const qType = normalizeType(q);
-          const selected = local[q.id]?.responseValue ?? prefilled[q.id]?.responseValue ?? "";
+          const cfg = q.category ? categoryConfig[q.category as QuestionCategory] : undefined;
+          const selectedOptionId = answers[q.id];
 
           return (
             <div key={q.id} className="ascend-card animate-fade-in" style={{ animationDelay: `${idx * 30}ms` }}>
@@ -294,35 +187,28 @@ export default function AssessmentStepper() {
                 <div className="flex-1">
                   <p className="text-sm font-medium text-foreground">{q.text}</p>
                   <div className="flex flex-wrap items-center gap-2 mt-2">
-                    <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex items-center gap-1")}>
-                      <cfg.icon className="w-3.5 h-3.5" />
-                      {cfg.label}
-                    </span>
-                    <span className="text-xs text-muted-foreground">Weight: {q.weight}</span>
+                    {cfg ? (
+                      <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex items-center gap-1")}>
+                        <cfg.icon className="w-3.5 h-3.5" />
+                        {cfg.label}
+                      </span>
+                    ) : (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        Sem categoria
+                      </span>
+                    )}
                   </div>
-                  {q.hint && <p className="text-xs text-muted-foreground mt-1">{q.hint}</p>}
                 </div>
               </div>
 
               <div className="space-y-3">
-                {qType === "text" && (
-                  <textarea
-                    className="ascend-input w-full text-sm min-h-[90px] resize-y"
-                    placeholder="Digite sua resposta"
-                    value={selected}
-                    onChange={(e) => setValue(q.id, { responseValue: e.target.value })}
-                    onBlur={(e) => void saveOne(q, e.target.value)}
-                    disabled={submitting}
-                  />
-                )}
-
-                {(qType === "multiple_choice" || qType === "scale") && q.options?.length > 0 && (
+                {q.options?.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {q.options
                       .slice()
-                      .sort((a, b) => a.sortOrder - b.sortOrder)
+                      .sort((a, b) => a.weight - b.weight)
                       .map((opt) => {
-                        const isSelected = selected === opt.scoreValue;
+                        const isSelected = selectedOptionId === opt.id;
                         return (
                           <button
                             key={opt.id}
@@ -333,48 +219,13 @@ export default function AssessmentStepper() {
                                 ? "bg-primary text-primary-foreground border-primary"
                                 : "border-border text-muted-foreground hover:border-primary/50",
                             )}
-                            onClick={() => {
-                              setValue(q.id, { responseValue: opt.scoreValue });
-                              void saveOne(q, opt.scoreValue);
-                            }}
-                            disabled={submitting}
+                            onClick={() => handleSelect(q.id, opt.id)}
+                            disabled={submitAnswers.isPending}
                           >
-                            {opt.label}
+                            {opt.text}
                           </button>
                         );
                       })}
-                  </div>
-                )}
-
-                {qType === null ? (
-                  <p className="text-xs text-warning mt-1">Tipo da pergunta não informado pelo backend.</p>
-                ) : null}
-
-                {q.evidenceRequired && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-xs text-muted-foreground">
-                    <input
-                      className="bg-transparent outline-none flex-1"
-                      placeholder="Evidência (obrigatória)"
-                      value={local[q.id]?.evidence ?? prefilled[q.id]?.evidence ?? ""}
-                      onChange={(e) => setValue(q.id, { evidence: e.target.value })}
-                      onBlur={(e) => {
-                        const next = local[q.id]?.responseValue ?? prefilled[q.id]?.responseValue ?? "";
-                        void upsertResponses.mutateAsync({
-                          assessmentId,
-                          payload: {
-                            responses: [
-                              {
-                                questionTemplateId: q.id,
-                                responseValue: next,
-                                evidence: e.target.value || undefined,
-                                observation: local[q.id]?.observation || undefined,
-                              },
-                            ],
-                          },
-                        });
-                      }}
-                      disabled={submitting}
-                    />
                   </div>
                 )}
               </div>
@@ -390,10 +241,10 @@ export default function AssessmentStepper() {
         <Button
           type="button"
           onClick={() => void handleSubmitFinal()}
-          disabled={submitting || upsertResponses.isPending || submit.isPending}
+          disabled={!canSubmit}
           className="rounded-lg"
         >
-          {(submitting || upsertResponses.isPending || submit.isPending) && <span className="mr-2">...</span>}
+          {submitAnswers.isPending && <span className="mr-2">...</span>}
           Enviar respostas finais
           <CheckCircle2 className="w-4 h-4 ml-2" />
         </Button>
