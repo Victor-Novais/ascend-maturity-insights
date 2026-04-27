@@ -2,7 +2,10 @@ import { useState } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuditFailureCount24h } from "@/hooks/useAuditLogs";
+import { useRisks } from "@/hooks/useRisks";
+import { RiskLevel, RiskStatus } from "@/types/risk";
 import {
+  AlertTriangle,
   BarChart3,
   Building2,
   ClipboardCheck,
@@ -26,6 +29,7 @@ const adminNavItems = [
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
   { label: "Planos de Acao", icon: Target, path: "/action-plans" },
+  { label: "Gestao de Riscos", icon: AlertTriangle, path: "/risks" },
   { label: "Auditoria", icon: Shield, path: "/audit-logs" },
 ];
 
@@ -35,6 +39,7 @@ const clienteNavItems = [
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
   { label: "Planos de Acao", icon: Target, path: "/action-plans" },
+  { label: "Gestao de Riscos", icon: AlertTriangle, path: "/risks" },
 ];
 
 const collaboratorNavItems = [
@@ -42,6 +47,7 @@ const collaboratorNavItems = [
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
   { label: "Planos de Acao", icon: Target, path: "/action-plans" },
+  { label: "Gestao de Riscos", icon: AlertTriangle, path: "/risks" },
 ];
 
 export default function DashboardLayout() {
@@ -49,6 +55,10 @@ export default function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
   const auditFailuresQuery = useAuditFailureCount24h(user?.role === "ADMIN");
+  const criticalRisksQuery = useRisks(
+    { riskLevel: RiskLevel.CRITICO },
+    user?.role === "ADMIN" || user?.role === "CLIENTE" || user?.role === "COLLABORATOR",
+  );
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -69,6 +79,8 @@ export default function DashboardLayout() {
         ? collaboratorNavItems
         : clienteNavItems;
   const auditFailureCount = auditFailuresQuery.data?.total ?? 0;
+  const untreatedCriticalCount =
+    (criticalRisksQuery.data ?? []).filter((risk) => risk.status !== RiskStatus.MITIGADO).length;
 
   const NavContent = () => (
     <div className="flex flex-col h-full">
@@ -98,6 +110,11 @@ export default function DashboardLayout() {
           >
             <item.icon className="w-5 h-5 flex-shrink-0" />
             {(sidebarOpen || mobileOpen) && <span className="flex-1">{item.label}</span>}
+            {item.path === "/risks" && untreatedCriticalCount > 0 ? (
+              <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                {untreatedCriticalCount > 99 ? "99+" : untreatedCriticalCount}
+              </span>
+            ) : null}
             {item.path === "/audit-logs" && auditFailureCount > 0 ? (
               <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                 {auditFailureCount > 99 ? "99+" : auditFailureCount}

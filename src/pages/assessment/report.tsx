@@ -7,8 +7,9 @@ import ReportSummary from "@/components/ReportSummary";
 import { assessmentFlowApi } from "@/services/api";
 import { ApiError } from "@/lib/api";
 import { useGenerateFromAssessment } from "@/hooks/useActionPlans";
+import { useGenerateRisksFromAssessment } from "@/hooks/useRisks";
 import { Button } from "@/components/ui/button";
-import { Sparkles } from "lucide-react";
+import { AlertTriangle, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 const maturityDescription: Record<string, string> = {
@@ -23,6 +24,7 @@ export default function AssessmentReportPage() {
   const navigate = useNavigate();
   const assessmentId = Number(searchParams.get("id"));
   const generateFromAssessment = useGenerateFromAssessment();
+  const generateRisksFromAssessment = useGenerateRisksFromAssessment();
 
   const reportQuery = useQuery({
     queryKey: ["assessment-flow-report", assessmentId],
@@ -63,9 +65,23 @@ export default function AssessmentReportPage() {
     }
   };
 
+  const handleGenerateRiskMatrix = async () => {
+    try {
+      const response = await generateRisksFromAssessment.mutateAsync(assessmentId);
+      toast.success(`${response.count} riscos identificados automaticamente`);
+      navigate("/risks");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao gerar matriz de riscos.");
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => void handleGenerateRiskMatrix()} disabled={generateRisksFromAssessment.isPending}>
+          <AlertTriangle className="mr-2 h-4 w-4" />
+          Gerar Matriz de Riscos
+        </Button>
         <Button onClick={() => void handleGenerateActionPlans()} disabled={generateFromAssessment.isPending}>
           <Sparkles className="mr-2 h-4 w-4" />
           Gerar Planos de Acao

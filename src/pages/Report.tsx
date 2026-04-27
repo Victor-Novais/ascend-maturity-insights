@@ -1,12 +1,13 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAssessment, useAssessmentResult } from "@/hooks/useAssessments";
 import { useGenerateFromAssessment } from "@/hooks/useActionPlans";
+import { useGenerateRisksFromAssessment } from "@/hooks/useRisks";
 import { useAuth } from "@/contexts/AuthContext";
 import FrameworkBadge from "@/components/FrameworkBadge";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
 import MaturityChart from "@/components/MaturityChart";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Award, Sparkles, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Award, Sparkles, TrendingUp } from "lucide-react";
 import { ApiError } from "@/lib/api";
 import { normalizeStrengthsWeaknesses } from "@/lib/report-utils";
 import { toast } from "sonner";
@@ -35,6 +36,7 @@ export default function ReportPage() {
   const { data: assessment, isLoading: isLoadingAssessment } = useAssessment(assessmentId);
   const { data: result, isLoading, error } = useAssessmentResult(assessmentId);
   const generateFromAssessment = useGenerateFromAssessment();
+  const generateRisksFromAssessment = useGenerateRisksFromAssessment();
 
   if (user?.role === "COLLABORATOR") {
     return (
@@ -96,6 +98,16 @@ export default function ReportPage() {
     }
   };
 
+  const handleGenerateRiskMatrix = async () => {
+    try {
+      const response = await generateRisksFromAssessment.mutateAsync(assessmentId);
+      toast.success(`${response.count} riscos identificados automaticamente`);
+      navigate("/risks");
+    } catch (generateError) {
+      toast.error(generateError instanceof Error ? generateError.message : "Falha ao gerar matriz de riscos.");
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -111,10 +123,16 @@ export default function ReportPage() {
             <p className="text-sm text-muted-foreground">{companyName}</p>
           </div>
         </div>
-        <Button onClick={() => void handleGenerateActionPlans()} disabled={generateFromAssessment.isPending}>
-          <Sparkles className="mr-2 h-4 w-4" />
-          Gerar Planos de Acao
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button variant="outline" onClick={() => void handleGenerateRiskMatrix()} disabled={generateRisksFromAssessment.isPending}>
+            <AlertTriangle className="mr-2 h-4 w-4" />
+            Gerar Matriz de Riscos
+          </Button>
+          <Button onClick={() => void handleGenerateActionPlans()} disabled={generateFromAssessment.isPending}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            Gerar Planos de Acao
+          </Button>
+        </div>
       </div>
 
       <div className="ascend-card flex items-center justify-between gap-6 flex-wrap">

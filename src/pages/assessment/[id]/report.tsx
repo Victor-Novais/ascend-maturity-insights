@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { assessmentFlowApi } from "@/services/api";
 import { useGenerateFromAssessment } from "@/hooks/useActionPlans";
+import { useGenerateRisksFromAssessment } from "@/hooks/useRisks";
 import RadarChart from "@/components/RadarChart";
 import ReportInsights from "@/components/ReportInsights";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ApiError } from "@/lib/api";
-import { Sparkles } from "lucide-react";
+import { AlertTriangle, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 const maturityDescription: Record<string, string> = {
@@ -38,6 +39,7 @@ export default function AssessmentReportByIdPage() {
   const assessmentId = Number(id);
   const navigate = useNavigate();
   const generateFromAssessment = useGenerateFromAssessment();
+  const generateRisksFromAssessment = useGenerateRisksFromAssessment();
   const reportQuery = useQuery({
     queryKey: ["assessment-report-by-id", assessmentId],
     queryFn: () => assessmentFlowApi.getResult(assessmentId),
@@ -80,6 +82,16 @@ export default function AssessmentReportByIdPage() {
     }
   };
 
+  const handleGenerateRiskMatrix = async () => {
+    try {
+      const response = await generateRisksFromAssessment.mutateAsync(assessmentId);
+      toast.success(`${response.count} riscos identificados automaticamente`);
+      navigate("/risks");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao gerar matriz de riscos.");
+    }
+  };
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 animate-fade-in">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -88,6 +100,10 @@ export default function AssessmentReportByIdPage() {
           <p className="text-sm text-muted-foreground">Avaliacao #{assessmentId} com leitura completa de maturidade.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
+          <Button variant="outline" onClick={() => void handleGenerateRiskMatrix()} disabled={generateRisksFromAssessment.isPending}>
+            <AlertTriangle className="mr-2 h-4 w-4" />
+            Gerar Matriz de Riscos
+          </Button>
           <Button onClick={() => void handleGenerateActionPlans()} disabled={generateFromAssessment.isPending}>
             <Sparkles className="mr-2 h-4 w-4" />
             Gerar Planos de Acao
