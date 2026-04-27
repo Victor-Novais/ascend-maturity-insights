@@ -11,6 +11,7 @@ import {
   LibraryBig,
   LogOut,
   Menu,
+  Target,
   User,
   X,
 } from "lucide-react";
@@ -22,6 +23,7 @@ const adminNavItems = [
   { label: "Empresas", icon: Building2, path: "/dashboard/companies" },
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
+  { label: "Planos de Acao", icon: Target, path: "/action-plans" },
 ];
 
 const clienteNavItems = [
@@ -29,12 +31,14 @@ const clienteNavItems = [
   { label: "Empresas", icon: Building2, path: "/dashboard/companies" },
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
+  { label: "Planos de Acao", icon: Target, path: "/action-plans" },
 ];
 
 const collaboratorNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
+  { label: "Planos de Acao", icon: Target, path: "/action-plans" },
 ];
 
 export default function DashboardLayout() {

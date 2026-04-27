@@ -1,12 +1,15 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAssessment, useAssessmentResult } from "@/hooks/useAssessments";
+import { useGenerateFromAssessment } from "@/hooks/useActionPlans";
 import { useAuth } from "@/contexts/AuthContext";
 import FrameworkBadge from "@/components/FrameworkBadge";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
 import MaturityChart from "@/components/MaturityChart";
-import { ArrowLeft, Award, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Award, Sparkles, TrendingUp } from "lucide-react";
 import { ApiError } from "@/lib/api";
 import { normalizeStrengthsWeaknesses } from "@/lib/report-utils";
+import { toast } from "sonner";
 
 const maturityConfig: Record<string, { label: string; color: string; bg: string }> = {
   Inicial: { label: "Inicial", color: "text-destructive", bg: "bg-destructive/10" },
@@ -28,8 +31,10 @@ export default function ReportPage() {
   const { id } = useParams();
   const assessmentId = Number(id);
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { data: assessment, isLoading: isLoadingAssessment } = useAssessment(assessmentId);
   const { data: result, isLoading, error } = useAssessmentResult(assessmentId);
+  const generateFromAssessment = useGenerateFromAssessment();
 
   if (user?.role === "COLLABORATOR") {
     return (
@@ -81,19 +86,35 @@ export default function ReportPage() {
     );
   const weaknesses = normalizeStrengthsWeaknesses(assessment?.report?.weaknesses);
 
+  const handleGenerateActionPlans = async () => {
+    try {
+      const response = await generateFromAssessment.mutateAsync(assessmentId);
+      toast.success(`${response.count} planos de acao gerados automaticamente!`);
+      navigate("/action-plans");
+    } catch (generateError) {
+      toast.error(generateError instanceof Error ? generateError.message : "Falha ao gerar planos de acao.");
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
-      <div className="flex items-center gap-4">
-        <Link
-          to="/dashboard/assessments"
-          className="w-9 h-9 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </Link>
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold">Assessment Report</h1>
-          <p className="text-sm text-muted-foreground">{companyName}</p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-4">
+          <Link
+            to="/dashboard/assessments"
+            className="w-9 h-9 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold">Assessment Report</h1>
+            <p className="text-sm text-muted-foreground">{companyName}</p>
+          </div>
         </div>
+        <Button onClick={() => void handleGenerateActionPlans()} disabled={generateFromAssessment.isPending}>
+          <Sparkles className="mr-2 h-4 w-4" />
+          Gerar Planos de Acao
+        </Button>
       </div>
 
       <div className="ascend-card flex items-center justify-between gap-6 flex-wrap">

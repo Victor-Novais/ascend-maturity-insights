@@ -1,11 +1,15 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import RadarChartComponent from "@/components/RadarChartComponent";
 import ReportInsights from "@/components/ReportInsights";
 import ReportSummary from "@/components/ReportSummary";
 import { assessmentFlowApi } from "@/services/api";
 import { ApiError } from "@/lib/api";
+import { useGenerateFromAssessment } from "@/hooks/useActionPlans";
+import { Button } from "@/components/ui/button";
+import { Sparkles } from "lucide-react";
+import { toast } from "sonner";
 
 const maturityDescription: Record<string, string> = {
   ARTESANAL: "Processos informais e não padronizados",
@@ -16,7 +20,9 @@ const maturityDescription: Record<string, string> = {
 
 export default function AssessmentReportPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const assessmentId = Number(searchParams.get("id"));
+  const generateFromAssessment = useGenerateFromAssessment();
 
   const reportQuery = useQuery({
     queryKey: ["assessment-flow-report", assessmentId],
@@ -47,8 +53,25 @@ export default function AssessmentReportPage() {
 
   const report = reportQuery.data;
 
+  const handleGenerateActionPlans = async () => {
+    try {
+      const response = await generateFromAssessment.mutateAsync(assessmentId);
+      toast.success(`${response.count} planos de acao gerados automaticamente!`);
+      navigate("/action-plans");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao gerar planos de acao.");
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
+      <div className="flex justify-end">
+        <Button onClick={() => void handleGenerateActionPlans()} disabled={generateFromAssessment.isPending}>
+          <Sparkles className="mr-2 h-4 w-4" />
+          Gerar Planos de Acao
+        </Button>
+      </div>
+
       <ReportSummary
         score={report.score}
         maturityLevel={report.maturityLevel}

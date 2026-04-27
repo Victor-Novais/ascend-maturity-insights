@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { assessmentFlowApi } from "@/services/api";
+import { useGenerateFromAssessment } from "@/hooks/useActionPlans";
 import RadarChart from "@/components/RadarChart";
 import ReportInsights from "@/components/ReportInsights";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ApiError } from "@/lib/api";
+import { Sparkles } from "lucide-react";
+import { toast } from "sonner";
 
 const maturityDescription: Record<string, string> = {
   ARTESANAL: "Processos informais com baixa padronizacao e alto risco operacional.",
@@ -33,6 +36,8 @@ function maturityTone(level: string) {
 export default function AssessmentReportByIdPage() {
   const { id } = useParams();
   const assessmentId = Number(id);
+  const navigate = useNavigate();
+  const generateFromAssessment = useGenerateFromAssessment();
   const reportQuery = useQuery({
     queryKey: ["assessment-report-by-id", assessmentId],
     queryFn: () => assessmentFlowApi.getResult(assessmentId),
@@ -65,6 +70,16 @@ export default function AssessmentReportByIdPage() {
 
   const report = reportQuery.data;
 
+  const handleGenerateActionPlans = async () => {
+    try {
+      const response = await generateFromAssessment.mutateAsync(assessmentId);
+      toast.success(`${response.count} planos de acao gerados automaticamente!`);
+      navigate("/action-plans");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao gerar planos de acao.");
+    }
+  };
+
   return (
     <div className="mx-auto max-w-6xl space-y-6 animate-fade-in">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -72,9 +87,15 @@ export default function AssessmentReportByIdPage() {
           <h1 className="text-2xl font-bold">Executive Report</h1>
           <p className="text-sm text-muted-foreground">Avaliacao #{assessmentId} com leitura completa de maturidade.</p>
         </div>
-        <Button asChild variant="outline" className="rounded-xl">
-          <Link to={`/assessment/${assessmentId}/details`}>View Details</Link>
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button onClick={() => void handleGenerateActionPlans()} disabled={generateFromAssessment.isPending}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            Gerar Planos de Acao
+          </Button>
+          <Button asChild variant="outline" className="rounded-xl">
+            <Link to={`/assessment/${assessmentId}/details`}>View Details</Link>
+          </Button>
+        </div>
       </div>
 
       <Card className="rounded-2xl shadow-sm">
