@@ -1,30 +1,65 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { clearAuthToken, setAuthToken } from "@/lib/api";
-import type { User } from "@/lib/types";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { clearAuthTokens, registerAuthCallbacks, setAuthTokens } from "@/lib/api";
+import type { AuthResponse, User } from "@/lib/types";
 import { authService } from "@/services/auth.service";
 
 interface AuthContextType {
   user: User | null;
+  accessToken: string | null;
+  refreshToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (token: string) => void;
-  logout: () => void;
+  login: (auth: AuthResponse) => Promise<void>;
+  logout: (options?: { silent?: boolean; redirectToLogin?: boolean }) => Promise<void>;
+  renewSession: () => Promise<boolean>;
   refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function decodeTokenExp(token: string) {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = JSON.parse(window.atob(normalized)) as { exp?: number };
+    return decoded.exp ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [accessToken, setAccessTokenState] = useState<string | null>(null);
+  const [refreshToken, setRefreshTokenState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const warnedTokenRef = useRef<string | null>(null);
 
-  const fetchUser = useCallback(async () => {
-    const token = localStorage.getItem("ascend_token");
-    if (!token) {
+  const applyTokens = useCallback((nextAccessToken: string | null, nextRefreshToken: string | null) => {
+    setAccessTokenState(nextAccessToken);
+    setRefreshTokenState(nextRefreshToken);
+    setAuthTokens({
+      accessToken: nextAccessToken,
+      refreshToken: nextRefreshToken,
+    });
+  }, []);
+
+  const clearSession = useCallback(() => {
+    applyTokens(null, null);
+    clearAuthTokens();
+    setUser(null);
+    warnedTokenRef.current = null;
+  }, [applyTokens]);
+
+  const refreshUser = useCallback(async () => {
+    if (!accessToken) {
       setUser(null);
       setIsLoading(false);
       return;
     }
+
     try {
       const userData = await authService.me();
       setUser({
@@ -35,36 +70,156 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name: userData.name ?? null,
       });
     } catch {
-      clearAuthToken();
-      setUser(null);
+      clearSession();
     } finally {
       setIsLoading(false);
     }
+  }, [accessToken, clearSession]);
+
+  const logout = useCallback(
+    async (options?: { silent?: boolean; redirectToLogin?: boolean }) => {
+      const currentRefreshToken = refreshToken;
+
+      try {
+        if (currentRefreshToken) {
+          await authService.logout(currentRefreshToken);
+        }
+      } catch {
+        // Clear local session regardless of revoke result.
+      } finally {
+        clearSession();
+        if (!options?.silent) {
+          toast.success("Sessao encerrada com seguranca");
+        }
+        if (options?.redirectToLogin !== false && window.location.pathname !== "/login") {
+          window.location.href = "/login";
+        }
+      }
+    },
+    [clearSession, refreshToken],
+  );
+
+  const renewSession = useCallback(async () => {
+    if (!refreshToken) {
+      await logout({ silent: true });
+      return false;
+    }
+
+    try {
+      const refreshed = await authService.refresh(refreshToken);
+      applyTokens(refreshed.accessToken, refreshed.refreshToken);
+      warnedTokenRef.current = null;
+
+      if (refreshed.user) {
+        setUser({
+          id: refreshed.user.id,
+          email: refreshed.user.email,
+          role: refreshed.user.role,
+          createdAt: refreshed.user.createdAt,
+          name: refreshed.user.name ?? null,
+        });
+        setIsLoading(false);
+      } else {
+        setIsLoading(true);
+        await refreshUser();
+      }
+
+      return true;
+    } catch {
+      await logout({ silent: true });
+      return false;
+    }
+  }, [applyTokens, logout, refreshToken, refreshUser]);
+
+  const login = useCallback(
+    async (auth: AuthResponse) => {
+      applyTokens(auth.accessToken, auth.refreshToken);
+      warnedTokenRef.current = null;
+
+      if (auth.user) {
+        setUser({
+          id: auth.user.id,
+          email: auth.user.email,
+          role: auth.user.role,
+          createdAt: auth.user.createdAt,
+          name: auth.user.name ?? null,
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      await refreshUser();
+    },
+    [applyTokens, refreshUser],
+  );
+
+  useEffect(() => {
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
+    registerAuthCallbacks({
+      onRefreshToken: async (currentRefreshToken) => {
+        const refreshed = await authService.refresh(currentRefreshToken);
+        setAccessTokenState(refreshed.accessToken);
+        setRefreshTokenState(refreshed.refreshToken);
+        warnedTokenRef.current = null;
+        return {
+          accessToken: refreshed.accessToken,
+          refreshToken: refreshed.refreshToken,
+        };
+      },
+      onLogout: async () => {
+        await logout({ silent: true });
+      },
+    });
+  }, [logout]);
 
-  const login = (token: string) => {
-    setAuthToken(token);
-    void fetchUser();
-  };
+  useEffect(() => {
+    if (!accessToken) return;
 
-  const logout = () => {
-    clearAuthToken();
-    setUser(null);
-  };
+    const warnIfNeeded = () => {
+      const exp = decodeTokenExp(accessToken);
+      if (!exp) return;
+
+      const remainingMs = exp * 1000 - Date.now();
+      if (remainingMs <= 0) {
+        void renewSession();
+        return;
+      }
+
+      if (remainingMs <= 2 * 60 * 1000 && warnedTokenRef.current !== accessToken) {
+        warnedTokenRef.current = accessToken;
+        toast("Sua sessao expira em breve. Clique para renovar.", {
+          duration: 15000,
+          action: {
+            label: "Renovar",
+            onClick: () => {
+              void renewSession();
+            },
+          },
+        });
+      }
+    };
+
+    warnIfNeeded();
+    const intervalId = window.setInterval(warnIfNeeded, 30000);
+    return () => window.clearInterval(intervalId);
+  }, [accessToken, renewSession]);
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        accessToken,
+        refreshToken,
         isLoading,
         isAuthenticated: !!user,
         login,
         logout,
-        refreshUser: fetchUser,
+        renewSession,
+        refreshUser,
       }}
     >
       {children}

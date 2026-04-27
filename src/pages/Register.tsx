@@ -1,45 +1,67 @@
 import { useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, useWatch } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
+import { z } from "zod";
+import PasswordStrengthIndicator from "@/components/auth/PasswordStrengthIndicator";
 import { useRegister } from "@/hooks/useAuth";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Eye, EyeOff, ArrowRight, ArrowLeft, BarChart3, Building2, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, BarChart3, Building2, Eye, EyeOff, Users } from "lucide-react";
 
 type UserType = "CLIENTE" | "COLLABORATOR" | null;
+
+const registerSchema = z.object({
+  name: z.string().min(1, "Informe seu nome"),
+  email: z.string().email("Informe um email valido"),
+  password: z
+    .string()
+    .min(8, "Minimo 8 caracteres")
+    .regex(/[A-Z]/, "Deve conter letra maiuscula")
+    .regex(/[a-z]/, "Deve conter letra minuscula")
+    .regex(/[0-9]/, "Deve conter numero")
+    .regex(/[@$!%*?&#]/, "Deve conter simbolo especial (@$!%*?&#)"),
+  companyCode: z.string().optional(),
+});
+
+type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const [step, setStep] = useState<1 | 2>(1);
   const [userType, setUserType] = useState<UserType>(null);
-
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
-  const [companyCode, setCompanyCode] = useState("");
-
   const navigate = useNavigate();
   const { login } = useAuth();
   const registerMutation = useRegister();
+  const form = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      companyCode: "",
+    },
+  });
+  const password = useWatch({ control: form.control, name: "password" }) ?? "";
 
   const handleSelectType = (type: UserType) => {
     setUserType(type);
     setStep(2);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !email.trim() || !password.trim()) {
-      toast.error("Preencha todos os campos obrigatórios");
-      return;
-    }
-    if (password.length < 6) {
-      toast.error("A senha deve ter pelo menos 6 caracteres");
-      return;
-    }
-    if (userType === "COLLABORATOR" && !companyCode.trim()) {
-      toast.error("Informe o código da empresa");
+  const handleSubmit = async (values: RegisterFormValues) => {
+    if (userType === "COLLABORATOR" && !values.companyCode?.trim()) {
+      toast.error("Informe o codigo da empresa");
       return;
     }
 
@@ -47,21 +69,21 @@ export default function RegisterPage() {
       const body =
         userType === "CLIENTE"
           ? {
-              name,
-              email,
-              password,
+              name: values.name.trim(),
+              email: values.email.trim(),
+              password: values.password,
               userType: "CLIENTE" as const,
             }
           : {
-              name,
-              email,
-              password,
+              name: values.name.trim(),
+              email: values.email.trim(),
+              password: values.password,
               userType: "COLLABORATOR" as const,
-              companyCode: companyCode.trim(),
+              companyCode: values.companyCode?.trim(),
             };
 
       const result = await registerMutation.mutateAsync(body);
-      login(result.accessToken);
+      await login(result);
       toast.success("Conta criada com sucesso!");
       navigate("/dashboard");
     } catch (error) {
@@ -81,18 +103,14 @@ export default function RegisterPage() {
             <span className="text-2xl font-bold tracking-tight">ASCEND</span>
           </div>
           <h1 className="text-4xl font-bold leading-tight mb-4">
-            {step === 1
-              ? "Comece sua jornada de evolução"
-              : userType === "CLIENTE"
-                ? "Conta de proprietário"
-                : "Entre na equipe"}
+            {step === 1 ? "Comece sua jornada de evolucao" : userType === "CLIENTE" ? "Conta de proprietario" : "Entre na equipe"}
           </h1>
           <p className="text-lg opacity-80 leading-relaxed">
             {step === 1
-              ? "Escolha como deseja usar a plataforma ASCEND para avaliação de maturidade empresarial."
+              ? "Escolha como deseja usar a plataforma ASCEND para avaliacao de maturidade empresarial."
               : userType === "CLIENTE"
-                ? "Cadastre-se como dono da empresa. Depois você poderá criar a empresa e o código de convite no painel."
-                : "Use o código fornecido pela empresa para vincular sua conta ao tenant correto."}
+                ? "Cadastre-se como dono da empresa. Depois voce podera criar a empresa e o codigo de convite no painel."
+                : "Use o codigo fornecido pela empresa para vincular sua conta ao tenant correto."}
           </p>
         </div>
       </div>
@@ -109,7 +127,7 @@ export default function RegisterPage() {
           {step === 1 ? (
             <>
               <h2 className="text-2xl font-bold text-foreground mb-1">Criar conta</h2>
-              <p className="text-muted-foreground mb-8">Como você deseja usar o ASCEND?</p>
+              <p className="text-muted-foreground mb-8">Como voce deseja usar o ASCEND?</p>
 
               <div className="space-y-4">
                 <button
@@ -140,7 +158,7 @@ export default function RegisterPage() {
                   <div className="flex-1">
                     <p className="font-semibold text-foreground">Sou colaborador</p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Entre com o código da empresa para participar das avaliações da sua organização.
+                      Entre com o codigo da empresa para participar das avaliacoes da sua organizacao.
                     </p>
                   </div>
                   <ArrowRight className="w-5 h-5 text-muted-foreground mt-1 group-hover:text-primary transition-colors" />
@@ -158,95 +176,117 @@ export default function RegisterPage() {
               </button>
 
               <h2 className="text-2xl font-bold text-foreground mb-1">
-                {userType === "CLIENTE" ? "Seus dados" : "Dados e código da empresa"}
+                {userType === "CLIENTE" ? "Seus dados" : "Dados e codigo da empresa"}
               </h2>
               <p className="text-muted-foreground mb-8">
                 {userType === "CLIENTE"
-                  ? "Apenas sua conta — a empresa será cadastrada depois no dashboard."
-                  : "Preencha seus dados e o código da empresa"}
+                  ? "Apenas sua conta - a empresa sera cadastrada depois no dashboard."
+                  : "Preencha seus dados e o codigo da empresa"}
               </p>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Nome completo</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="ascend-input w-full"
-                    placeholder="Seu nome"
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome completo</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Seu nome" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">E-mail</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="ascend-input w-full"
-                    placeholder="seu@email.com"
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>E-mail</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="seu@email.com" autoComplete="email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Senha</label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="ascend-input w-full pr-10"
-                      placeholder="Mínimo 6 caracteres"
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Senha</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              type={showPassword ? "text" : "password"}
+                              className="pr-10"
+                              placeholder="Minimo 8 caracteres"
+                              autoComplete="new-password"
+                              {...field}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword((current) => !current)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </FormControl>
+                        <PasswordStrengthIndicator password={password} />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {userType === "COLLABORATOR" ? (
+                    <FormField
+                      control={form.control}
+                      name="companyCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Codigo da empresa</FormLabel>
+                          <FormControl>
+                            <Input
+                              className="font-mono tracking-wider"
+                              placeholder="Ex: ABC123"
+                              value={field.value ?? ""}
+                              onChange={(event) => field.onChange(event.target.value.toUpperCase())}
+                            />
+                          </FormControl>
+                          <p className="text-xs text-muted-foreground mt-1.5">
+                            Solicite o codigo ao responsavel pela empresa.
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
+                  ) : null}
 
-                {userType === "COLLABORATOR" && (
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">Código da empresa</label>
-                    <input
-                      type="text"
-                      value={companyCode}
-                      onChange={(e) => setCompanyCode(e.target.value.toUpperCase())}
-                      className="ascend-input w-full font-mono tracking-wider"
-                      placeholder="Ex: ABC123"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1.5">
-                      Solicite o código ao responsável pela empresa.
-                    </p>
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  className="w-full h-11 rounded-lg font-medium mt-2"
-                  disabled={registerMutation.isPending}
-                >
-                  {registerMutation.isPending ? (
-                    <span className="flex items-center gap-2">
-                      <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                      Criando...
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      Criar conta <ArrowRight className="w-4 h-4" />
-                    </span>
-                  )}
-                </Button>
-              </form>
+                  <Button type="submit" className="w-full h-11 rounded-lg font-medium mt-2" disabled={registerMutation.isPending}>
+                    {registerMutation.isPending ? (
+                      <span className="flex items-center gap-2">
+                        <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                        Criando...
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2">
+                        Criar conta <ArrowRight className="w-4 h-4" />
+                      </span>
+                    )}
+                  </Button>
+                </form>
+              </Form>
             </>
           )}
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Já tem uma conta?{" "}
+            Ja tem uma conta?{" "}
             <Link to="/login" className="text-primary font-medium hover:underline">
               Fazer login
             </Link>

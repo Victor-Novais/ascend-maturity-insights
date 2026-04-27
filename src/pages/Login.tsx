@@ -4,36 +4,57 @@ import { useLogin } from "@/hooks/useAuth";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Eye, EyeOff, ArrowRight, BarChart3 } from "lucide-react";
+import { ArrowRight, BarChart3, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockUntil, setLockUntil] = useState<number | null>(null);
   const navigate = useNavigate();
   const { login } = useAuth();
   const loginMutation = useLogin();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (lockUntil && Date.now() < lockUntil) {
+      toast.error("Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.");
+      return;
+    }
+
     if (!email.trim() || !password.trim()) {
       toast.error("Preencha todos os campos");
       return;
     }
+
     try {
-      const result = await loginMutation.mutateAsync({ email, password });
-      login(result.accessToken);
+      const result = await loginMutation.mutateAsync({
+        email: email.trim(),
+        password,
+      });
+      await login(result);
+      setFailedAttempts(0);
+      setLockUntil(null);
       toast.success("Login realizado com sucesso!");
       navigate("/dashboard");
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Erro ao fazer login";
-      toast.error(message);
+    } catch {
+      const nextAttempts = failedAttempts + 1;
+      setFailedAttempts(nextAttempts);
+
+      if (nextAttempts >= 5) {
+        setLockUntil(Date.now() + 3 * 60 * 1000);
+        toast.error("Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.");
+        return;
+      }
+
+      toast.error("Email ou senha incorretos");
     }
   };
 
   return (
     <div className="min-h-screen flex">
-      {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 ascend-gradient items-center justify-center p-12">
         <div className="max-w-md text-primary-foreground animate-fade-in">
           <div className="flex items-center gap-3 mb-8">
@@ -42,18 +63,16 @@ export default function LoginPage() {
             </div>
             <span className="text-2xl font-bold tracking-tight">ASCEND</span>
           </div>
-          <h1 className="text-4xl font-bold leading-tight mb-4">
-            Avaliação de Maturidade Empresarial
-          </h1>
+          <h1 className="text-4xl font-bold leading-tight mb-4">Avaliacao de Maturidade Empresarial</h1>
           <p className="text-lg opacity-80 leading-relaxed">
-            Meça, analise e evolua a maturidade da sua organização em Governança, Segurança, Processos, Infraestrutura e Cultura.
+            Meca, analise e evolua a maturidade da sua organizacao em Governanca, Seguranca, Processos, Infraestrutura e Cultura.
           </p>
           <div className="mt-10 grid grid-cols-5 gap-3">
-            {["GOV", "SEG", "PROC", "INFRA", "CULT"].map((label, i) => (
+            {["GOV", "SEG", "PROC", "INFRA", "CULT"].map((label, index) => (
               <div
                 key={label}
                 className="rounded-lg bg-primary-foreground/10 backdrop-blur-sm p-3 text-center"
-                style={{ animationDelay: `${i * 100}ms` }}
+                style={{ animationDelay: `${index * 100}ms` }}
               >
                 <span className="text-xs font-medium opacity-80">{label}</span>
               </div>
@@ -62,7 +81,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right panel */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-md animate-fade-in">
           <div className="lg:hidden flex items-center gap-3 mb-10">
@@ -81,7 +99,7 @@ export default function LoginPage() {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 className="ascend-input w-full"
                 placeholder="seu@email.com"
                 autoComplete="email"
@@ -94,14 +112,14 @@ export default function LoginPage() {
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(event) => setPassword(event.target.value)}
                   className="ascend-input w-full pr-10"
-                  placeholder="••••••••"
+                  placeholder="********"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowPassword((current) => !current)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -109,10 +127,14 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {failedAttempts > 0 ? (
+              <p className="text-xs text-muted-foreground">Tentativas falhas recentes: {failedAttempts}/5</p>
+            ) : null}
+
             <Button
               type="submit"
               className="w-full h-11 rounded-lg font-medium"
-              disabled={loginMutation.isPending}
+              disabled={loginMutation.isPending || (!!lockUntil && Date.now() < lockUntil)}
             >
               {loginMutation.isPending ? (
                 <span className="flex items-center gap-2">
@@ -128,7 +150,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Não tem uma conta?{" "}
+            Nao tem uma conta?{" "}
             <Link to="/register" className="text-primary font-medium hover:underline">
               Criar conta
             </Link>
