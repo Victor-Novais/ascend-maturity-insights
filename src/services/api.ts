@@ -23,6 +23,9 @@ export type WizardQuestion = {
   id: number;
   text: string;
   category: string | null;
+  frameworkType?: "COBIT" | "ITIL" | "ISO_27000" | "PROPRIO";
+  frameworkRef?: string;
+  frameworkNote?: string;
   options: WizardQuestionOption[];
 };
 
@@ -35,6 +38,9 @@ type BackendAssessmentResultResponse = {
   totalScore: number;
   categoryScores: Record<string, number>;
   categoryWeights: Record<string, number>;
+  strengths?: unknown[];
+  weaknesses?: unknown[];
+  recommendations?: unknown[];
 };
 
 export type AssessmentResultResponse = {
@@ -44,9 +50,9 @@ export type AssessmentResultResponse = {
   score: number;
   maturityLevel: string;
   categories: AssessmentResultCategory[];
-  strengths: string[];
-  weaknesses: string[];
-  recommendations: string[];
+  strengths: unknown[];
+  weaknesses: unknown[];
+  recommendations: unknown[];
 };
 
 function getMaturity(score: number) {
@@ -107,9 +113,9 @@ export const assessmentFlowApi = {
             category,
             score: Number(score),
           })),
-          strengths: [],
-          weaknesses: [],
-          recommendations: [],
+          strengths: Array.isArray(data.strengths) ? data.strengths : [],
+          weaknesses: Array.isArray(data.weaknesses) ? data.weaknesses : [],
+          recommendations: Array.isArray(data.recommendations) ? data.recommendations : [],
         } satisfies AssessmentResultResponse;
       });
   },

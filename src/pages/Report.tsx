@@ -1,10 +1,12 @@
 import { useParams, Link } from "react-router-dom";
 import { useAssessment, useAssessmentResult } from "@/hooks/useAssessments";
 import { useAuth } from "@/contexts/AuthContext";
+import FrameworkBadge from "@/components/FrameworkBadge";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
 import MaturityChart from "@/components/MaturityChart";
 import { ArrowLeft, Award, TrendingUp } from "lucide-react";
 import { ApiError } from "@/lib/api";
+import { normalizeStrengthsWeaknesses } from "@/lib/report-utils";
 
 const maturityConfig: Record<string, { label: string; color: string; bg: string }> = {
   Inicial: { label: "Inicial", color: "text-destructive", bg: "bg-destructive/10" },
@@ -77,6 +79,7 @@ export default function ReportPage() {
     .map(({ label, score }) =>
       score < 50 ? `Needs improvement in ${label}` : `Strong performance in ${label}`,
     );
+  const weaknesses = normalizeStrengthsWeaknesses(assessment?.report?.weaknesses);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
@@ -154,6 +157,27 @@ export default function ReportPage() {
           </div>
         )}
       </div>
+
+      {weaknesses.length > 0 ? (
+        <div className="ascend-card">
+          <h2 className="text-lg font-semibold mb-4">Gaps identificados</h2>
+          <div className="space-y-3">
+            {weaknesses.map((item) => (
+              <div key={`${item.title}-${item.frameworkRef ?? item.frameworkType ?? "gap"}`} className="rounded-lg border border-border bg-muted/30 px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{item.questionText ?? item.title}</span>
+                  <FrameworkBadge
+                    frameworkType={item.frameworkType}
+                    frameworkRef={item.frameworkRef}
+                    frameworkNote={item.frameworkNote}
+                  />
+                </div>
+                {item.summary ? <p className="mt-2 text-sm text-muted-foreground">{item.summary}</p> : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

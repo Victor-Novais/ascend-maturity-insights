@@ -43,6 +43,7 @@ export interface CompanyWithRelations extends Company {
 
 export type QuestionCategory = "GOVERNANCA" | "SEGURANCA" | "PROCESSOS" | "INFRAESTRUTURA" | "CULTURA";
 export type ResponseType = "YES_NO" | "SCALE";
+export type FrameworkType = "COBIT" | "ITIL" | "ISO_27000" | "PROPRIO";
 
 /** Legacy global question bank (ADMIN-managed). */
 export interface Question {
@@ -55,6 +56,9 @@ export interface Question {
   evidenceRequired: boolean;
   hint?: string;
   isActive: boolean;
+  frameworkType?: FrameworkType;
+  frameworkRef?: string;
+  frameworkNote?: string;
   createdBy: Pick<User, "id" | "name" | "email" | "role">;
 }
 
@@ -75,6 +79,9 @@ export interface AssessmentQuestion {
   id: number;
   text: string;
   category: QuestionCategory | string | null;
+  frameworkType?: FrameworkType;
+  frameworkRef?: string;
+  frameworkNote?: string;
   options: AssessmentQuestionOption[];
 }
 

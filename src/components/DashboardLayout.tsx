@@ -5,27 +5,36 @@ import {
   BarChart3,
   Building2,
   ClipboardCheck,
+  ChevronLeft,
   FileBarChart,
   LayoutDashboard,
+  LibraryBig,
   LogOut,
   Menu,
   User,
   X,
-  ChevronLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const adminNavItems = [
+  { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
+  { label: "Questoes", icon: LibraryBig, path: "/dashboard/questions" },
+  { label: "Empresas", icon: Building2, path: "/dashboard/companies" },
+  { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
+  { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
+];
 
 const clienteNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Empresas", icon: Building2, path: "/dashboard/companies" },
-  { label: "Avaliações", icon: ClipboardCheck, path: "/dashboard/assessments" },
-  { label: "Relatórios", icon: FileBarChart, path: "/dashboard/reports" },
+  { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
+  { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
 ];
 
 const collaboratorNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-  { label: "Avaliações", icon: ClipboardCheck, path: "/dashboard/assessments" },
-  { label: "Relatórios", icon: FileBarChart, path: "/dashboard/reports" },
+  { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
+  { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
 ];
 
 export default function DashboardLayout() {
@@ -45,9 +54,15 @@ export default function DashboardLayout() {
       ? location.pathname === "/dashboard"
       : location.pathname.startsWith(path);
 
+  const navItems =
+    user?.role === "ADMIN"
+      ? adminNavItems
+      : user?.role === "COLLABORATOR"
+        ? collaboratorNavItems
+        : clienteNavItems;
+
   const NavContent = () => (
     <div className="flex flex-col h-full">
-      {/* Logo */}
       <div className="p-5 flex items-center gap-3">
         <div className="w-9 h-9 rounded-lg bg-sidebar-primary/20 flex items-center justify-center flex-shrink-0">
           <BarChart3 className="w-5 h-5 text-sidebar-primary" />
@@ -59,9 +74,8 @@ export default function DashboardLayout() {
         )}
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 px-3 mt-2 space-y-1">
-        {(user?.role === "COLLABORATOR" ? collaboratorNavItems : clienteNavItems).map((item) => (
+        {navItems.map((item) => (
           <Link
             key={item.path}
             to={item.path}
@@ -79,7 +93,6 @@ export default function DashboardLayout() {
         ))}
       </nav>
 
-      {/* User */}
       <div className="p-3 border-t border-sidebar-border">
         <div className="flex items-center gap-3 px-3 py-2">
           <div className="w-8 h-8 rounded-full ascend-gradient flex items-center justify-center flex-shrink-0">
@@ -109,7 +122,6 @@ export default function DashboardLayout() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div
           className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-40 lg:hidden"
@@ -117,7 +129,6 @@ export default function DashboardLayout() {
         />
       )}
 
-      {/* Mobile sidebar */}
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 w-64 bg-sidebar transition-transform duration-300 lg:hidden",
@@ -133,7 +144,6 @@ export default function DashboardLayout() {
         <NavContent />
       </aside>
 
-      {/* Desktop sidebar */}
       <aside
         className={cn(
           "hidden lg:flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 flex-shrink-0",
@@ -152,9 +162,7 @@ export default function DashboardLayout() {
         </button>
       </aside>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
         <header className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center px-4 gap-4 sticky top-0 z-30">
           <button
             onClick={() => setMobileOpen(true)}
@@ -171,7 +179,6 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        {/* Page content */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
           <Outlet />
         </main>

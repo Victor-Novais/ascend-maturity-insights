@@ -1,5 +1,5 @@
-import type { QuestionCategory } from "@/lib/types";
-import type { AssessmentWithRelations, MaturityLevel } from "@/lib/types";
+import { getFrameworkType } from "@/lib/frameworks";
+import type { AssessmentWithRelations, FrameworkType, MaturityLevel, QuestionCategory } from "@/lib/types";
 
 /** Backend persists strengths/weaknesses as structured JSON (not plain strings). */
 export interface ReportStrengthWeaknessItem {
@@ -7,6 +7,10 @@ export interface ReportStrengthWeaknessItem {
   score: number;
   title: string;
   summary: string;
+  frameworkType?: FrameworkType;
+  frameworkRef?: string;
+  frameworkNote?: string;
+  questionText?: string;
 }
 
 export interface ReportRecommendationItem {
@@ -61,14 +65,59 @@ export function getMaturityLevel(assessment: AssessmentWithRelations): MaturityL
 
 export function normalizeStrengthsWeaknesses(
   raw: unknown,
-): Array<{ title: string; summary: string }> {
+): Array<{
+  title: string;
+  summary: string;
+  frameworkType?: FrameworkType;
+  frameworkRef?: string;
+  frameworkNote?: string;
+  questionText?: string;
+}> {
   if (!Array.isArray(raw)) return [];
   return raw.map((item) => {
     if (typeof item === "string") return { title: item, summary: "" };
-    if (isRecord(item) && typeof item.title === "string") {
+    if (isRecord(item)) {
+      const question = isRecord(item.question) ? item.question : undefined;
+      const framework = isRecord(item.framework) ? item.framework : undefined;
+      const title =
+        typeof item.title === "string"
+          ? item.title
+          : typeof item.questionText === "string"
+            ? item.questionText
+            : typeof question?.text === "string"
+              ? question.text
+              : String(item);
+
       return {
-        title: item.title,
+        title,
         summary: typeof item.summary === "string" ? item.summary : "",
+        frameworkType: getFrameworkType(
+          item.frameworkType ??
+            framework?.type ??
+            question?.frameworkType,
+        ),
+        frameworkRef:
+          typeof item.frameworkRef === "string"
+            ? item.frameworkRef
+            : typeof framework?.ref === "string"
+              ? framework.ref
+              : typeof question?.frameworkRef === "string"
+                ? question.frameworkRef
+                : undefined,
+        frameworkNote:
+          typeof item.frameworkNote === "string"
+            ? item.frameworkNote
+            : typeof framework?.note === "string"
+              ? framework.note
+              : typeof question?.frameworkNote === "string"
+                ? question.frameworkNote
+                : undefined,
+        questionText:
+          typeof item.questionText === "string"
+            ? item.questionText
+            : typeof question?.text === "string"
+              ? question.text
+              : undefined,
       };
     }
     return { title: String(item), summary: "" };

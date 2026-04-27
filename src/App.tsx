@@ -12,6 +12,7 @@ import CompaniesPage from "@/pages/Companies";
 import CompanyForm from "@/pages/CompanyForm";
 import CompanyDetail from "@/pages/CompanyDetail";
 import AssessmentsPage from "@/pages/Assessments";
+import QuestionsPage from "@/pages/Questions";
 import AssessmentStepper from "@/pages/AssessmentStepper";
 import ReportsPage from "@/pages/Reports";
 import ReportPage from "@/pages/Report";
@@ -46,6 +47,7 @@ const App = () => (
             <Route element={<ProtectedRoute />}>
               <Route element={<DashboardLayout />}>
                 <Route path="/dashboard" element={<DashboardRouter />} />
+                <Route path="/dashboard/questions" element={<QuestionsPage />} />
                 <Route path="/dashboard/companies" element={<CompaniesPage />} />
                 <Route path="/dashboard/companies/new" element={<CompanyForm />} />
                 <Route path="/dashboard/companies/:id" element={<CompanyDetail />} />

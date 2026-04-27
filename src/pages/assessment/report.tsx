@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import RadarChartComponent from "@/components/RadarChartComponent";
+import ReportInsights from "@/components/ReportInsights";
 import ReportSummary from "@/components/ReportSummary";
 import { assessmentFlowApi } from "@/services/api";
 import { ApiError } from "@/lib/api";
@@ -75,39 +76,11 @@ export default function AssessmentReportPage() {
           ))}
         </div>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="ascend-card">
-          <h3 className="text-lg font-semibold mb-3">Strengths</h3>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            {report.strengths.map((item) => (
-              <li key={item} className="rounded-lg bg-muted/50 px-3 py-2">
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="ascend-card">
-          <h3 className="text-lg font-semibold mb-3">Weaknesses</h3>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            {report.weaknesses.map((item) => (
-              <li key={item} className="rounded-lg bg-muted/50 px-3 py-2">
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="ascend-card">
-          <h3 className="text-lg font-semibold mb-3">Recommendations</h3>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            {report.recommendations.map((item) => (
-              <li key={item} className="rounded-lg bg-muted/50 px-3 py-2">
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      <ReportInsights
+        strengths={report.strengths ?? []}
+        weaknesses={report.weaknesses ?? []}
+        recommendations={report.recommendations ?? []}
+      />
     </div>
   );
 }
