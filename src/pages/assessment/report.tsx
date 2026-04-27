@@ -8,8 +8,10 @@ import { assessmentFlowApi } from "@/services/api";
 import { ApiError } from "@/lib/api";
 import { useGenerateFromAssessment } from "@/hooks/useActionPlans";
 import { useGenerateRisksFromAssessment } from "@/hooks/useRisks";
+import { useAssessment } from "@/hooks/useAssessments";
+import { analyticsService } from "@/services/analytics.service";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Sparkles } from "lucide-react";
+import { AlertTriangle, Download, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 const maturityDescription: Record<string, string> = {
@@ -25,6 +27,7 @@ export default function AssessmentReportPage() {
   const assessmentId = Number(searchParams.get("id"));
   const generateFromAssessment = useGenerateFromAssessment();
   const generateRisksFromAssessment = useGenerateRisksFromAssessment();
+  const assessmentQuery = useAssessment(assessmentId);
 
   const reportQuery = useQuery({
     queryKey: ["assessment-flow-report", assessmentId],
@@ -75,9 +78,27 @@ export default function AssessmentReportPage() {
     }
   };
 
+  const handleExportPdf = async () => {
+    const companyId = assessmentQuery.data?.companyId;
+    if (!companyId) {
+      toast.error("Empresa nao encontrada para exportacao.");
+      return;
+    }
+    try {
+      await analyticsService.exportCompanyReportPdf(companyId);
+      toast.success("Relatorio PDF exportado com sucesso.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao exportar PDF.");
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
       <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => void handleExportPdf()}>
+          <Download className="mr-2 h-4 w-4" />
+          Exportar Relatorio PDF
+        </Button>
         <Button variant="outline" onClick={() => void handleGenerateRiskMatrix()} disabled={generateRisksFromAssessment.isPending}>
           <AlertTriangle className="mr-2 h-4 w-4" />
           Gerar Matriz de Riscos

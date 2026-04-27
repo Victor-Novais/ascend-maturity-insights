@@ -6,6 +6,7 @@ import { useRisks } from "@/hooks/useRisks";
 import { RiskLevel, RiskStatus } from "@/types/risk";
 import {
   AlertTriangle,
+  BarChart2,
   BarChart3,
   Building2,
   ClipboardCheck,
@@ -28,6 +29,7 @@ const adminNavItems = [
   { label: "Empresas", icon: Building2, path: "/dashboard/companies" },
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
+  { label: "Analytics", icon: BarChart2, path: "/analytics" },
   { label: "Planos de Acao", icon: Target, path: "/action-plans" },
   { label: "Gestao de Riscos", icon: AlertTriangle, path: "/risks" },
   { label: "Auditoria", icon: Shield, path: "/audit-logs" },
@@ -38,6 +40,7 @@ const clienteNavItems = [
   { label: "Empresas", icon: Building2, path: "/dashboard/companies" },
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
+  { label: "Analytics", icon: BarChart2, path: "/analytics" },
   { label: "Planos de Acao", icon: Target, path: "/action-plans" },
   { label: "Gestao de Riscos", icon: AlertTriangle, path: "/risks" },
 ];
@@ -46,6 +49,7 @@ const collaboratorNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
+  { label: "Analytics", icon: BarChart2, path: "/analytics" },
   { label: "Planos de Acao", icon: Target, path: "/action-plans" },
   { label: "Gestao de Riscos", icon: AlertTriangle, path: "/risks" },
 ];

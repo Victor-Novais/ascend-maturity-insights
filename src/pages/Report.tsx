@@ -2,12 +2,13 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAssessment, useAssessmentResult } from "@/hooks/useAssessments";
 import { useGenerateFromAssessment } from "@/hooks/useActionPlans";
 import { useGenerateRisksFromAssessment } from "@/hooks/useRisks";
+import { analyticsService } from "@/services/analytics.service";
 import { useAuth } from "@/contexts/AuthContext";
 import FrameworkBadge from "@/components/FrameworkBadge";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
 import MaturityChart from "@/components/MaturityChart";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ArrowLeft, Award, Sparkles, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Award, Download, Sparkles, TrendingUp } from "lucide-react";
 import { ApiError } from "@/lib/api";
 import { normalizeStrengthsWeaknesses } from "@/lib/report-utils";
 import { toast } from "sonner";
@@ -108,6 +109,20 @@ export default function ReportPage() {
     }
   };
 
+  const handleExportPdf = async () => {
+    if (!assessment?.companyId) {
+      toast.error("Empresa nao encontrada para exportacao.");
+      return;
+    }
+
+    try {
+      await analyticsService.exportCompanyReportPdf(assessment.companyId);
+      toast.success("Relatorio PDF exportado com sucesso.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao exportar PDF.");
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -124,6 +139,10 @@ export default function ReportPage() {
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
+          <Button variant="outline" onClick={() => void handleExportPdf()}>
+            <Download className="mr-2 h-4 w-4" />
+            Exportar Relatorio PDF
+          </Button>
           <Button variant="outline" onClick={() => void handleGenerateRiskMatrix()} disabled={generateRisksFromAssessment.isPending}>
             <AlertTriangle className="mr-2 h-4 w-4" />
             Gerar Matriz de Riscos
