@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuditFailureCount24h } from "@/hooks/useAuditLogs";
 import {
   BarChart3,
   Building2,
@@ -11,6 +12,7 @@ import {
   LibraryBig,
   LogOut,
   Menu,
+  Shield,
   Target,
   User,
   X,
@@ -24,6 +26,7 @@ const adminNavItems = [
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
   { label: "Planos de Acao", icon: Target, path: "/action-plans" },
+  { label: "Auditoria", icon: Shield, path: "/audit-logs" },
 ];
 
 const clienteNavItems = [
@@ -45,6 +48,7 @@ export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
+  const auditFailuresQuery = useAuditFailureCount24h(user?.role === "ADMIN");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -64,6 +68,7 @@ export default function DashboardLayout() {
       : user?.role === "COLLABORATOR"
         ? collaboratorNavItems
         : clienteNavItems;
+  const auditFailureCount = auditFailuresQuery.data?.total ?? 0;
 
   const NavContent = () => (
     <div className="flex flex-col h-full">
@@ -92,7 +97,12 @@ export default function DashboardLayout() {
             )}
           >
             <item.icon className="w-5 h-5 flex-shrink-0" />
-            {(sidebarOpen || mobileOpen) && <span>{item.label}</span>}
+            {(sidebarOpen || mobileOpen) && <span className="flex-1">{item.label}</span>}
+            {item.path === "/audit-logs" && auditFailureCount > 0 ? (
+              <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                {auditFailureCount > 99 ? "99+" : auditFailureCount}
+              </span>
+            ) : null}
           </Link>
         ))}
       </nav>

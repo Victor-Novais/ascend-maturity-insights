@@ -18,6 +18,7 @@ import ReportsPage from "@/pages/Reports";
 import ReportPage from "@/pages/Report";
 import NotFound from "@/pages/NotFound";
 import ActionPlansPage from "@/pages/ActionPlans";
+import AuditLogsPage from "@/pages/AuditLogs";
 import AssessmentCreatePage from "@/pages/assessment/create";
 import AssessmentQuestionPage from "@/pages/assessment/[id]";
 import AssessmentReportPage from "@/pages/assessment/report";
@@ -58,6 +59,7 @@ const App = () => (
                 <Route path="/dashboard/reports" element={<ReportsPage />} />
                 <Route path="/dashboard/reports/:id" element={<ReportPage />} />
                 <Route path="/action-plans" element={<ActionPlansPage />} />
+                <Route path="/audit-logs" element={<AuditLogsPage />} />
                 <Route path="/assessment/create" element={<AssessmentCreatePage />} />
                 <Route path="/assessment/:id" element={<AssessmentQuestionPage />} />
                 <Route path="/assessment/report" element={<AssessmentReportPage />} />
