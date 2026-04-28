@@ -15,7 +15,7 @@ function getStrength(password: string) {
   return checks.filter(Boolean).length;
 }
 
-const labels = ["Fraca", "Razoavel", "Boa", "Forte"];
+const labels = ["Fraca", "Razoável", "Boa", "Forte"];
 const tones = ["bg-red-500", "bg-orange-500", "bg-yellow-500", "bg-green-500"];
 
 export default function PasswordStrengthIndicator({ password }: Props) {

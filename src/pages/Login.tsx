@@ -5,12 +5,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ArrowRight, BarChart3, Eye, EyeOff } from "lucide-react";
+import { ApiError } from "@/lib/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [attempts, setAttempts] = useState(0);
   const [lockUntil, setLockUntil] = useState<number | null>(null);
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -34,22 +35,34 @@ export default function LoginPage() {
         email: email.trim(),
         password,
       });
-      await login(result);
-      setFailedAttempts(0);
+      if (!result.user) {
+        throw new Error("Resposta de autenticação incompleta.");
+      }
+      await login({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        user: result.user,
+      });
+      setAttempts(0);
       setLockUntil(null);
       toast.success("Login realizado com sucesso!");
       navigate("/dashboard");
-    } catch {
-      const nextAttempts = failedAttempts + 1;
-      setFailedAttempts(nextAttempts);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        const nextAttempts = attempts + 1;
+        setAttempts(nextAttempts);
 
-      if (nextAttempts >= 5) {
-        setLockUntil(Date.now() + 3 * 60 * 1000);
-        toast.error("Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.");
+        if (nextAttempts >= 5) {
+          setLockUntil(Date.now() + 3 * 60 * 1000);
+          toast.error("Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.");
+          return;
+        }
+
+        toast.error("E-mail ou senha incorretos");
         return;
       }
 
-      toast.error("Email ou senha incorretos");
+      toast.error(error instanceof Error ? error.message : "Falha ao realizar login.");
     }
   };
 
@@ -127,8 +140,14 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {failedAttempts > 0 ? (
-              <p className="text-xs text-muted-foreground">Tentativas falhas recentes: {failedAttempts}/5</p>
+            {attempts >= 5 && lockUntil && Date.now() < lockUntil ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.
+              </div>
+            ) : null}
+
+            {attempts > 0 ? (
+              <p className="text-xs text-muted-foreground">Tentativas falhas recentes: {attempts}/5</p>
             ) : null}
 
             <Button

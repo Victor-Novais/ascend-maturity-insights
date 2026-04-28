@@ -4,13 +4,17 @@ import { clearAuthTokens, registerAuthCallbacks, setAuthTokens } from "@/lib/api
 import type { AuthResponse, User } from "@/lib/types";
 import { authService } from "@/services/auth.service";
 
+type AuthSessionPayload = AuthResponse & {
+  user: User;
+};
+
 interface AuthContextType {
   user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (auth: AuthResponse) => Promise<void>;
+  login: (auth: AuthSessionPayload) => Promise<void>;
   logout: (options?: { silent?: boolean; redirectToLogin?: boolean }) => Promise<void>;
   renewSession: () => Promise<boolean>;
   refreshUser: () => Promise<void>;
@@ -32,14 +36,14 @@ function decodeTokenExp(token: string) {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [accessToken, setAccessTokenState] = useState<string | null>(null);
-  const [refreshToken, setRefreshTokenState] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const warnedTokenRef = useRef<string | null>(null);
 
   const applyTokens = useCallback((nextAccessToken: string | null, nextRefreshToken: string | null) => {
-    setAccessTokenState(nextAccessToken);
-    setRefreshTokenState(nextRefreshToken);
+    setAccessToken(nextAccessToken);
+    setRefreshToken(nextRefreshToken);
     setAuthTokens({
       accessToken: nextAccessToken,
       refreshToken: nextRefreshToken,
@@ -132,26 +136,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [applyTokens, logout, refreshToken, refreshUser]);
 
   const login = useCallback(
-    async (auth: AuthResponse) => {
+    async (auth: AuthSessionPayload) => {
       applyTokens(auth.accessToken, auth.refreshToken);
       warnedTokenRef.current = null;
-
-      if (auth.user) {
-        setUser({
-          id: auth.user.id,
-          email: auth.user.email,
-          role: auth.user.role,
-          createdAt: auth.user.createdAt,
-          name: auth.user.name ?? null,
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      setIsLoading(true);
-      await refreshUser();
+      setUser({
+        id: auth.user.id,
+        email: auth.user.email,
+        role: auth.user.role,
+        createdAt: auth.user.createdAt,
+        name: auth.user.name ?? null,
+      });
+      setIsLoading(false);
     },
-    [applyTokens, refreshUser],
+    [applyTokens],
   );
 
   useEffect(() => {
@@ -162,8 +159,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     registerAuthCallbacks({
       onRefreshToken: async (currentRefreshToken) => {
         const refreshed = await authService.refresh(currentRefreshToken);
-        setAccessTokenState(refreshed.accessToken);
-        setRefreshTokenState(refreshed.refreshToken);
+        setAccessToken(refreshed.accessToken);
+        setRefreshToken(refreshed.refreshToken);
         warnedTokenRef.current = null;
         return {
           accessToken: refreshed.accessToken,

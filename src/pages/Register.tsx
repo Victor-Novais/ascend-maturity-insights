@@ -23,14 +23,14 @@ type UserType = "CLIENTE" | "COLLABORATOR" | null;
 
 const registerSchema = z.object({
   name: z.string().min(1, "Informe seu nome"),
-  email: z.string().email("Informe um email valido"),
+  email: z.string().email("Informe um e-mail válido"),
   password: z
     .string()
-    .min(8, "Minimo 8 caracteres")
-    .regex(/[A-Z]/, "Deve conter letra maiuscula")
-    .regex(/[a-z]/, "Deve conter letra minuscula")
-    .regex(/[0-9]/, "Deve conter numero")
-    .regex(/[@$!%*?&#]/, "Deve conter simbolo especial (@$!%*?&#)"),
+    .min(8, "Mínimo 8 caracteres")
+    .regex(/[A-Z]/, "Deve conter letra maiúscula")
+    .regex(/[a-z]/, "Deve conter letra minúscula")
+    .regex(/[0-9]/, "Deve conter ao menos um número")
+    .regex(/[@$!%*?&#]/, "Deve conter símbolo especial (@$!%*?&#)"),
   companyCode: z.string().optional(),
 });
 
@@ -83,7 +83,14 @@ export default function RegisterPage() {
             };
 
       const result = await registerMutation.mutateAsync(body);
-      await login(result);
+      if (!result.user) {
+        throw new Error("Resposta de autenticação incompleta.");
+      }
+      await login({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        user: result.user,
+      });
       toast.success("Conta criada com sucesso!");
       navigate("/dashboard");
     } catch (error) {
