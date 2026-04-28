@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAuditFailureCount24h } from "@/hooks/useAuditLogs";
+import { useAuditStats } from "@/hooks/useAuditLogs";
 import { useRisks } from "@/hooks/useRisks";
 import { RiskLevel, RiskStatus } from "@/types/risk";
 import {
@@ -57,7 +57,7 @@ export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
-  const auditFailuresQuery = useAuditFailureCount24h(user?.role === "ADMIN");
+  const auditStatsQuery = useAuditStats(user?.role === "ADMIN");
   const criticalRisksQuery = useRisks(
     { riskLevel: RiskLevel.CRITICO },
     user?.role === "ADMIN" || user?.role === "CLIENTE" || user?.role === "COLLABORATOR",
@@ -81,7 +81,7 @@ export default function DashboardLayout() {
       : user?.role === "COLLABORATOR" || user?.role === ("AVALIADOR" as typeof user.role)
         ? collaboratorNavItems
         : clienteNavItems;
-  const auditFailureCount = auditFailuresQuery.data?.total ?? 0;
+  const auditFailureCount = auditStatsQuery.data?.failedActions ?? 0;
   const untreatedCriticalCount =
     (criticalRisksQuery.data ?? []).filter((risk) => risk.status !== RiskStatus.MITIGADO).length;
 

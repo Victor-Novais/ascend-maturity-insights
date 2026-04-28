@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, getAuthToken } from "@/lib/api";
-import type { AuditLogFilters, AuditLogListResponse, AuditLogStats } from "@/types/audit-log";
+import type { AuditLogFilters, AuditLogsResponse, AuditStats } from "@/types/audit-log";
 
 function buildQueryString(filters: AuditLogFilters) {
   const params = new URLSearchParams();
@@ -14,7 +14,7 @@ function buildQueryString(filters: AuditLogFilters) {
 export function useAuditLogs(filters: AuditLogFilters, enabled = true) {
   return useQuery({
     queryKey: ["audit-logs", filters],
-    queryFn: () => api.get<AuditLogListResponse>("/audit-logs", filters),
+    queryFn: () => api.get<AuditLogsResponse>("/audit-logs", filters),
     staleTime: 30000,
     refetchInterval: 60000,
     enabled,
@@ -23,26 +23,10 @@ export function useAuditLogs(filters: AuditLogFilters, enabled = true) {
 
 export function useAuditStats(enabled = true) {
   return useQuery({
-    queryKey: ["audit-logs", "stats"],
-    queryFn: () => api.get<AuditLogStats>("/audit-logs/stats"),
-    enabled,
-  });
-}
-
-export function useAuditFailureCount24h(enabled = true) {
-  const dateFrom = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-  return useQuery({
-    queryKey: ["audit-logs", "failures-24h", dateFrom],
-    queryFn: () =>
-      api.get<AuditLogListResponse>("/audit-logs", {
-        success: false,
-        dateFrom,
-        page: 1,
-        limit: 1,
-    }),
-    staleTime: 300000,
-    refetchInterval: 300000,
+    queryKey: ["audit-stats"],
+    queryFn: () => api.get<AuditStats>("/audit-logs/stats"),
+    staleTime: 60000,
+    refetchInterval: 5 * 60 * 1000,
     enabled,
   });
 }
@@ -50,7 +34,13 @@ export function useAuditFailureCount24h(enabled = true) {
 export async function exportAuditLogs(filters: AuditLogFilters) {
   const token = getAuthToken();
   const baseUrl = import.meta.env.VITE_API_BASE_URL || "https://ascend-back-end-ohtq.onrender.com";
-  const queryString = buildQueryString(filters);
+  const queryString = buildQueryString({
+    dateFrom: filters.dateFrom,
+    dateTo: filters.dateTo,
+    entity: filters.entity,
+    action: filters.action,
+    success: filters.success,
+  });
   const url = `${baseUrl}/audit-logs/export${queryString ? `?${queryString}` : ""}`;
 
   const response = await fetch(url, {
@@ -65,7 +55,7 @@ export async function exportAuditLogs(filters: AuditLogFilters) {
   const downloadUrl = window.URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = downloadUrl;
-  anchor.download = `audit-logs-${filters.dateFrom ?? "inicio"}-${filters.dateTo ?? "fim"}.csv`;
+  anchor.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
