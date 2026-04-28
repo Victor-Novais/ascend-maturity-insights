@@ -1,19 +1,13 @@
 import type { QuestionCategory } from "@/lib/types";
 
-export interface AnalyticsCategoryScore {
-  category: QuestionCategory | string;
-  score: number;
-}
+export type AnalyticsCategoryScores = Record<QuestionCategory | string, number>;
 
 export interface CompanyEvolutionPoint {
   assessmentId: number;
-  companyId: number;
-  companyName?: string;
-  segment?: string;
-  date: string;
+  completedAt: string;
   totalScore: number;
   maturityLevel: string;
-  categoryScores: Record<string, number>;
+  categoryScores: AnalyticsCategoryScores;
 }
 
 export interface CompanyComparisonItem {
@@ -22,14 +16,20 @@ export interface CompanyComparisonItem {
   segment?: string;
   totalScore: number;
   maturityLevel?: string;
-  categoryScores: Record<string, number>;
+  categoryScores: AnalyticsCategoryScores;
+}
+
+export interface BenchmarkMaturityDistribution {
+  level: string;
+  count: number;
 }
 
 export interface BenchmarkData {
   segment: string;
-  averageScore: number;
-  categoryAverages: Record<string, number>;
-  sampleSize?: number;
+  avgTotalScore: number;
+  avgCategoryScores: AnalyticsCategoryScores;
+  totalCompanies: number;
+  maturityDistribution: BenchmarkMaturityDistribution[];
 }
 
 export interface PlatformAssessmentsByMonth {
@@ -50,14 +50,22 @@ export interface PlatformRecentActivity {
   createdAt: string;
 }
 
+export interface PlatformTopSegment {
+  segment: string;
+  count: number;
+  avgScore: number;
+}
+
 export interface PlatformStats {
   totalCompanies: number;
   totalAssessments: number;
-  averageScore: number;
-  activeUsers: number;
+  completedAssessments: number;
+  totalUsers: number;
+  avgTotalScore: number;
   assessmentsByMonth: PlatformAssessmentsByMonth[];
   maturityDistribution: PlatformMaturityDistribution[];
   recentActivity: PlatformRecentActivity[];
+  topSegments: PlatformTopSegment[];
 }
 
 export interface CompanyRadarDataPoint {
@@ -67,21 +75,25 @@ export interface CompanyRadarDataPoint {
 }
 
 export interface CompanyRadarData {
-  companyId: number;
   companyName: string;
   segment?: string;
+  categories: string[];
+  categoryScores: AnalyticsCategoryScores;
+  segmentAvgScores: AnalyticsCategoryScores;
   radar: CompanyRadarDataPoint[];
 }
 
-export interface AnalyticsReportExport {
+export interface ReportExportData {
   companyId: number;
   companyName: string;
-  maturityLevel: string;
+  segment?: string;
+  responsible?: string;
+  responsibleEmail?: string;
+  reportDate: string;
   totalScore: number;
-  categoryScores: Record<string, number>;
+  maturityLevel: string;
+  categoryScores: AnalyticsCategoryScores;
   strengths: string[];
   weaknesses: string[];
   recommendations: string[];
-  evaluatorName?: string;
-  generatedAt?: string;
 }

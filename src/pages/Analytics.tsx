@@ -35,8 +35,12 @@ import {
 import { useCompanies } from "@/hooks/useCompanies";
 import { analyticsService } from "@/services/analytics.service";
 import type { CompanyWithRelations } from "@/lib/types";
+import { generateAssessmentPdf } from "@/utils/generatePdf";
+import { format } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 
 const categoryKeys = ["GOVERNANCA", "SEGURANCA", "PROCESSOS", "INFRAESTRUTURA", "CULTURA"] as const;
+const RECHARTS_COLORS = ["#2563eb", "#7c3aed", "#dc2626", "#0891b2", "#0f766e", "#ca8a04"];
 const linePalette: Record<string, string> = {
   totalScore: "#2563eb",
   GOVERNANCA: "#7c3aed",
@@ -78,13 +82,13 @@ export default function AnalyticsPage() {
 
   const currentScore = evolutionQuery.data?.at(-1)?.totalScore ?? 0;
   const benchmarkComparisonData = useMemo(() => {
-    const averages = benchmarkQuery.data?.categoryAverages ?? {};
+    const averages = benchmarkQuery.data?.avgCategoryScores ?? {};
     return categoryKeys.map((category) => ({
       category,
       empresa: radarQuery.data?.radar.find((item) => item.category === category)?.companyScore ?? 0,
       segmento: Number(averages[category] ?? 0),
     }));
-  }, [benchmarkQuery.data?.categoryAverages, radarQuery.data?.radar]);
+  }, [benchmarkQuery.data?.avgCategoryScores, radarQuery.data?.radar]);
 
   const handleExportPdf = async () => {
     if (!selectedCompany?.id) {
@@ -93,7 +97,8 @@ export default function AnalyticsPage() {
     }
 
     try {
-      await analyticsService.exportCompanyReportPdf(selectedCompany.id);
+      const report = await analyticsService.getCompanyReportExport(selectedCompany.id);
+      generateAssessmentPdf(report);
       toast.success("Relatorio PDF exportado com sucesso.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao exportar PDF.");
@@ -179,7 +184,7 @@ export default function AnalyticsPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={evolutionData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="date" tickLine={false} axisLine={false} />
+                  <XAxis dataKey="date" tickFormatter={(value) => format(new Date(value), "dd/MM/yy")} tickLine={false} axisLine={false} />
                   <YAxis domain={[0, 100]} tickLine={false} axisLine={false} />
                   <Tooltip
                     content={({ active, payload, label }) => {
@@ -187,8 +192,10 @@ export default function AnalyticsPage() {
                       const item = payload[0]?.payload as { maturityLevel?: string; totalScore?: number };
                       return (
                         <div className="rounded-xl border bg-background p-3 shadow-lg">
-                          <p className="font-medium">{label}</p>
-                          <p className="text-xs text-muted-foreground">Maturity: {item.maturityLevel}</p>
+                          <p className="font-medium">{format(new Date(String(label)), "dd/MM/yyyy")}</p>
+                          <div className="mt-1">
+                            <Badge variant="outline">{item.maturityLevel}</Badge>
+                          </div>
                           {payload.map((entry) => (
                             <div key={String(entry.dataKey)} className="mt-1 flex items-center justify-between gap-3 text-sm">
                               <span>{entry.name}</span>
@@ -199,7 +206,13 @@ export default function AnalyticsPage() {
                       );
                     }}
                   />
-                  <Legend />
+                  <Legend
+                    onClick={(event) => {
+                      if (!event?.dataKey) return;
+                      const key = String(event.dataKey);
+                      setHiddenLines((current) => ({ ...current, [key]: !current[key] }));
+                    }}
+                  />
                   <ReferenceLine y={currentScore} stroke="#0f172a" strokeDasharray="6 6" />
                   {!hiddenLines.totalScore ? (
                     <Line type="monotone" dataKey="totalScore" name="Score Total" stroke={linePalette.totalScore} strokeWidth={3} dot={{ r: 3 }} isAnimationActive />
@@ -345,7 +358,7 @@ export default function AnalyticsPage() {
                       <Bar
                         key={company.companyId}
                         dataKey={company.companyName}
-                        fill={maturityColors[index % maturityColors.length]}
+                        fill={RECHARTS_COLORS[index % RECHARTS_COLORS.length]}
                         isAnimationActive
                       />
                     ))}

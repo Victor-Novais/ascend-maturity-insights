@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 import { analyticsService } from "@/services/analytics.service";
 
 export function useCompanyEvolution(companyId: number) {
@@ -13,7 +14,7 @@ export function useCompanyComparison(companyIds: number[]) {
   return useQuery({
     queryKey: ["analytics", "comparison", companyIds],
     queryFn: () => analyticsService.getComparison(companyIds),
-    enabled: companyIds.length > 0,
+    enabled: companyIds.length >= 2,
   });
 }
 
@@ -25,11 +26,12 @@ export function useBenchmark(segment: string) {
   });
 }
 
-export function usePlatformStats(enabled: boolean) {
+export function usePlatformStats() {
+  const { user } = useAuth();
   return useQuery({
     queryKey: ["analytics", "platform-stats"],
     queryFn: () => analyticsService.getPlatformStats(),
-    enabled,
+    enabled: user?.role === "ADMIN",
   });
 }
 

@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { ApiError } from "@/lib/api";
 import { AlertTriangle, Download, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { generateAssessmentPdf } from "@/utils/generatePdf";
 
 const maturityDescription: Record<string, string> = {
   ARTESANAL: "Processos informais com baixa padronizacao e alto risco operacional.",
@@ -102,7 +103,8 @@ export default function AssessmentReportByIdPage() {
       return;
     }
     try {
-      await analyticsService.exportCompanyReportPdf(companyId);
+      const reportExport = await analyticsService.getCompanyReportExport(companyId);
+      generateAssessmentPdf(reportExport);
       toast.success("Relatorio PDF exportado com sucesso.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao exportar PDF.");

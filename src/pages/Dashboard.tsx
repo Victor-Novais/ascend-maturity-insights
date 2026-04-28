@@ -67,7 +67,7 @@ export default function DashboardPage() {
   const isCollaborator = user?.role === "COLLABORATOR";
   const companiesQuery = useCompanies();
   const assessmentsQuery = useAssessments();
-  const platformStatsQuery = usePlatformStats(isAdmin);
+  const platformStatsQuery = usePlatformStats();
 
   const companies = (companiesQuery.data ?? []) as CompanyWithRelations[];
   const primaryCompany = companies[0];
@@ -101,14 +101,14 @@ export default function DashboardPage() {
   });
 
   const segmentComparisonData = useMemo(() => {
-    const benchmark = benchmarkQuery.data?.categoryAverages ?? {};
+    const benchmark = benchmarkQuery.data?.avgCategoryScores ?? {};
     return Object.entries(benchmark).map(([category, average]) => ({
       category,
       empresa:
         primaryRadarQuery.data?.radar.find((item) => item.category === category)?.companyScore ?? 0,
       segmento: Number(average ?? 0),
     }));
-  }, [benchmarkQuery.data?.categoryAverages, primaryRadarQuery.data?.radar]);
+  }, [benchmarkQuery.data?.avgCategoryScores, primaryRadarQuery.data?.radar]);
 
   if (isAdmin) {
     return (
@@ -130,8 +130,8 @@ export default function DashboardPage() {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <DashboardStatCard title="Total Empresas" value={platformStatsQuery.data?.totalCompanies ?? 0} icon={Building2} />
             <DashboardStatCard title="Total Assessments" value={platformStatsQuery.data?.totalAssessments ?? 0} icon={ClipboardCheck} />
-            <DashboardStatCard title="Score Medio Geral" value={`${(platformStatsQuery.data?.averageScore ?? 0).toFixed(1)}`} icon={TrendingUp} />
-            <DashboardStatCard title="Usuarios Ativos" value={platformStatsQuery.data?.activeUsers ?? 0} icon={Users} />
+            <DashboardStatCard title="Score Médio Geral" value={`${(platformStatsQuery.data?.avgTotalScore ?? 0).toFixed(1)}`} icon={TrendingUp} />
+            <DashboardStatCard title="Total Usuários" value={platformStatsQuery.data?.totalUsers ?? 0} icon={Users} />
           </div>
         )}
 

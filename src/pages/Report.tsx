@@ -12,6 +12,7 @@ import { AlertTriangle, ArrowLeft, Award, Download, Sparkles, TrendingUp } from 
 import { ApiError } from "@/lib/api";
 import { normalizeStrengthsWeaknesses } from "@/lib/report-utils";
 import { toast } from "sonner";
+import { generateAssessmentPdf } from "@/utils/generatePdf";
 
 const maturityConfig: Record<string, { label: string; color: string; bg: string }> = {
   Inicial: { label: "Inicial", color: "text-destructive", bg: "bg-destructive/10" },
@@ -116,7 +117,8 @@ export default function ReportPage() {
     }
 
     try {
-      await analyticsService.exportCompanyReportPdf(assessment.companyId);
+      const reportExport = await analyticsService.getCompanyReportExport(assessment.companyId);
+      generateAssessmentPdf(reportExport);
       toast.success("Relatorio PDF exportado com sucesso.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao exportar PDF.");
