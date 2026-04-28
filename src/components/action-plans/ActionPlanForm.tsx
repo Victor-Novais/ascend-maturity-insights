@@ -1,20 +1,9 @@
 import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Flag, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -24,42 +13,51 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   ActionPlanCategory,
   ActionPlanPriority,
-  ActionPlanStatus,
   type ActionPlan,
+  type ActionPlanCategory as ActionPlanCategoryType,
   type CreateActionPlanInput,
   type UpdateActionPlanInput,
 } from "@/types/action-plan";
 import {
   actionPlanCategoryLabels,
-  actionPlanCategoryOptions,
   actionPlanPriorityLabels,
   getPriorityBadgeClass,
 } from "@/components/action-plans/action-plan-utils";
 
+const categoryValues = Object.values(ActionPlanCategory);
+const priorityValues = Object.values(ActionPlanPriority);
+
 const actionPlanSchema = z.object({
-  title: z.string().min(5, "Informe um titulo com pelo menos 5 caracteres"),
-  description: z.string().min(10, "Descreva o plano com pelo menos 10 caracteres"),
-  category: z.nativeEnum(ActionPlanCategory),
-  frameworkRef: z.string().optional(),
-  priority: z.nativeEnum(ActionPlanPriority),
-  responsibleId: z.string().optional(),
-  dueDate: z.date().optional(),
+  title: z.string().min(5, "Informe pelo menos 5 caracteres").max(200, "Máximo de 200 caracteres"),
+  description: z.string().min(10, "Informe pelo menos 10 caracteres"),
+  category: z.enum(["GOVERNANCA", "SEGURANCA", "PROCESSOS", "INFRAESTRUTURA", "CULTURA"]),
+  frameworkRef: z.string().max(100, "Máximo de 100 caracteres").optional(),
+  priority: z.enum(["ALTA", "MEDIA", "BAIXA"]),
+  responsibleId: z.string().uuid("Responsável inválido").optional().or(z.literal("")),
+  dueDate: z.string().optional(),
   observations: z.string().optional(),
-  companyId: z.number().int().positive("Selecione uma empresa"),
-  assessmentId: z.number().int().positive().optional().nullable(),
+  companyId: z.coerce.number().int().positive("Selecione uma empresa"),
+  assessmentId: z.coerce.number().int().positive().optional(),
 });
 
 type ActionPlanFormValues = z.infer<typeof actionPlanSchema>;
 
-type Option = {
+type CompanyOption = {
   id: number;
   name: string;
 };
@@ -68,7 +66,6 @@ type ResponsibleOption = {
   id: string;
   name: string;
   email: string;
-  role: string;
 };
 
 type AssessmentOption = {
@@ -83,29 +80,24 @@ type Props = {
   onSubmit: (payload: CreateActionPlanInput | UpdateActionPlanInput) => Promise<void>;
   isSubmitting: boolean;
   plan?: ActionPlan | null;
-  companies: Option[];
+  companies: CompanyOption[];
   responsibles: ResponsibleOption[];
   assessments: AssessmentOption[];
   fixedCompanyId?: number;
-  fixedAssessmentId?: number;
 };
 
-function getDefaultValues(
-  plan: ActionPlan | null | undefined,
-  fixedCompanyId?: number,
-  fixedAssessmentId?: number,
-): ActionPlanFormValues {
+function getDefaultValues(plan?: ActionPlan | null, fixedCompanyId?: number): ActionPlanFormValues {
   return {
     title: plan?.title ?? "",
     description: plan?.description ?? "",
-    category: (plan?.category as ActionPlanCategory) ?? ActionPlanCategory.GOVERNANCA,
+    category: (plan?.category as ActionPlanCategoryType) ?? ActionPlanCategory.GOVERNANCA,
     frameworkRef: plan?.frameworkRef ?? "",
     priority: plan?.priority ?? ActionPlanPriority.MEDIA,
     responsibleId: plan?.responsibleId ?? "",
-    dueDate: plan?.dueDate ? new Date(plan.dueDate) : undefined,
+    dueDate: plan?.dueDate ?? "",
     observations: plan?.observations ?? "",
     companyId: plan?.companyId ?? fixedCompanyId ?? 0,
-    assessmentId: plan?.assessmentId ?? fixedAssessmentId ?? null,
+    assessmentId: plan?.assessmentId ?? undefined,
   };
 }
 
@@ -119,30 +111,17 @@ export default function ActionPlanForm({
   responsibles,
   assessments,
   fixedCompanyId,
-  fixedAssessmentId,
 }: Props) {
   const form = useForm<ActionPlanFormValues>({
     resolver: zodResolver(actionPlanSchema),
-    defaultValues: getDefaultValues(plan, fixedCompanyId, fixedAssessmentId),
+    defaultValues: getDefaultValues(plan, fixedCompanyId),
   });
 
   const companyId = form.watch("companyId");
 
   useEffect(() => {
-    form.reset(getDefaultValues(plan, fixedCompanyId, fixedAssessmentId));
-  }, [fixedAssessmentId, fixedCompanyId, form, open, plan]);
-
-  useEffect(() => {
-    if (!companyId) return;
-    const assessmentId = form.getValues("assessmentId");
-    if (!assessmentId) return;
-    const assessmentBelongsToCompany = assessments.some(
-      (assessment) => assessment.id === assessmentId && assessment.companyId === companyId,
-    );
-    if (!assessmentBelongsToCompany) {
-      form.setValue("assessmentId", null);
-    }
-  }, [assessments, companyId, form]);
+    form.reset(getDefaultValues(plan, fixedCompanyId));
+  }, [fixedCompanyId, form, open, plan]);
 
   const filteredAssessments = companyId
     ? assessments.filter((assessment) => assessment.companyId === companyId)
@@ -153,14 +132,13 @@ export default function ActionPlanForm({
       title: values.title.trim(),
       description: values.description.trim(),
       category: values.category,
-      frameworkRef: values.frameworkRef?.trim() || null,
+      frameworkRef: values.frameworkRef?.trim() || undefined,
       priority: values.priority,
-      responsibleId: values.responsibleId || null,
-      dueDate: values.dueDate ? format(values.dueDate, "yyyy-MM-dd") : null,
-      observations: values.observations?.trim() || null,
+      responsibleId: values.responsibleId || undefined,
+      dueDate: values.dueDate || undefined,
+      observations: values.observations?.trim() || undefined,
       companyId: values.companyId,
-      assessmentId: values.assessmentId ?? null,
-      status: plan?.status ?? ActionPlanStatus.PENDENTE,
+      assessmentId: values.assessmentId || undefined,
     } satisfies CreateActionPlanInput;
 
     await onSubmit(payload);
@@ -168,46 +146,44 @@ export default function ActionPlanForm({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{plan ? "Editar plano de acao" : "Novo plano de acao"}</DialogTitle>
-          <DialogDescription>
-            Registre titulo, responsavel, prioridade e prazo para acompanhar a execucao.
-          </DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetHeader>
+          <SheetTitle>{plan ? "Editar plano" : "Novo plano"}</SheetTitle>
+          <SheetDescription>Preencha os dados do plano de ação e defina prioridade, responsável e prazo.</SheetDescription>
+        </SheetHeader>
 
         <Form {...form}>
-          <form className="space-y-6" onSubmit={form.handleSubmit(handleSubmit)}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>Titulo</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ex: Implantar politica de backup testado" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          <form className="mt-6 space-y-5" onSubmit={form.handleSubmit(handleSubmit)}>
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Título</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: Revisar política de backup" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>Descricao</FormLabel>
-                    <FormControl>
-                      <Textarea className="min-h-28" placeholder="Descreva o objetivo, escopo e entregas." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Descrição</FormLabel>
+                  <FormControl>
+                    <Textarea className="min-h-28" placeholder="Descreva a ação a ser executada..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
+            <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="category"
@@ -221,9 +197,9 @@ export default function ActionPlanForm({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {actionPlanCategoryOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
+                        {categoryValues.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {actionPlanCategoryLabels[category]}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -240,7 +216,7 @@ export default function ActionPlanForm({
                   <FormItem>
                     <FormLabel>Framework</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: ISO 27001 A.8.13" {...field} />
+                      <Input placeholder="Ex: APO12.01" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -256,7 +232,7 @@ export default function ActionPlanForm({
                     <Select
                       onValueChange={(value) => field.onChange(Number(value))}
                       value={field.value ? String(field.value) : undefined}
-                      disabled={!!fixedCompanyId}
+                      disabled={Boolean(fixedCompanyId)}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -283,22 +259,19 @@ export default function ActionPlanForm({
                   <FormItem>
                     <FormLabel>Assessment</FormLabel>
                     <Select
-                      onValueChange={(value) => field.onChange(value === "none" ? null : Number(value))}
-                      value={field.value ? String(field.value) : "none"}
-                      disabled={!!fixedAssessmentId}
+                      onValueChange={(value) => field.onChange(value === "all" ? undefined : Number(value))}
+                      value={field.value ? String(field.value) : "all"}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Vincule a um assessment" />
+                          <SelectValue placeholder="Selecione o assessment" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="none">Sem vinculo</SelectItem>
+                        <SelectItem value="all">Sem vínculo</SelectItem>
                         {filteredAssessments.map((assessment) => (
                           <SelectItem key={assessment.id} value={String(assessment.id)}>
-                            {assessment.companyName
-                              ? `#${assessment.id} - ${assessment.companyName}`
-                              : `Assessment #${assessment.id}`}
+                            {assessment.companyName ? `#${assessment.id} - ${assessment.companyName}` : `Assessment #${assessment.id}`}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -313,18 +286,15 @@ export default function ActionPlanForm({
                 name="responsibleId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Responsavel</FormLabel>
-                    <Select
-                      onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
-                      value={field.value || "none"}
-                    >
+                    <FormLabel>Responsável</FormLabel>
+                    <Select onValueChange={(value) => field.onChange(value === "all" ? "" : value)} value={field.value || "all"}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecione o responsavel" />
+                          <SelectValue placeholder="Selecione o responsável" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="none">Nao atribuido</SelectItem>
+                        <SelectItem value="all">Não atribuído</SelectItem>
                         {responsibles.map((responsible) => (
                           <SelectItem key={responsible.id} value={responsible.id}>
                             {responsible.name}
@@ -341,29 +311,11 @@ export default function ActionPlanForm({
                 control={form.control}
                 name="dueDate"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col">
+                  <FormItem>
                     <FormLabel>Prazo</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn("justify-between font-normal", !field.value && "text-muted-foreground")}
-                          >
-                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : "Selecione a data"}
-                            <CalendarIcon className="h-4 w-4 opacity-70" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <FormControl>
+                      <Input type="date" {...field} value={field.value ?? ""} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -377,12 +329,8 @@ export default function ActionPlanForm({
                 <FormItem className="space-y-3">
                   <FormLabel>Prioridade</FormLabel>
                   <FormControl>
-                    <RadioGroup
-                      className="grid gap-3 sm:grid-cols-3"
-                      onValueChange={field.onChange}
-                      value={field.value}
-                    >
-                      {Object.values(ActionPlanPriority).map((priority) => (
+                    <RadioGroup className="grid gap-3 sm:grid-cols-3" onValueChange={field.onChange} value={field.value}>
+                      {priorityValues.map((priority) => (
                         <label
                           key={priority}
                           className={cn(
@@ -391,7 +339,6 @@ export default function ActionPlanForm({
                           )}
                         >
                           <RadioGroupItem value={priority} />
-                          <Flag className="h-4 w-4" />
                           <span className="font-medium">{actionPlanPriorityLabels[priority]}</span>
                         </label>
                       ))}
@@ -407,27 +354,27 @@ export default function ActionPlanForm({
               name="observations"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Observacoes</FormLabel>
+                  <FormLabel>Observações</FormLabel>
                   <FormControl>
-                    <Textarea className="min-h-24" placeholder="Informacoes adicionais, dependencias ou riscos." {...field} />
+                    <Textarea className="min-h-24" placeholder="Anotações adicionais..." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <DialogFooter>
+            <SheetFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {plan ? "Salvar alteracoes" : "Criar plano"}
+                {plan ? "Salvar alterações" : "Criar plano"}
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

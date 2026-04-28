@@ -1,21 +1,13 @@
-import { useState } from "react";
-import { format, parseISO } from "date-fns";
+import { useMemo, useState } from "react";
+import { format, isBefore, isValid, parseISO, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Navigate, useNavigate } from "react-router-dom";
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
+  AlertTriangle,
   CheckCircle2,
   Clock,
   ListChecks,
-  Loader2,
+  Pencil,
   PlayCircle,
   Plus,
   Sparkles,
@@ -23,32 +15,14 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import ActionPlanDetail from "@/components/action-plans/ActionPlanDetail";
 import ActionPlanForm from "@/components/action-plans/ActionPlanForm";
 import {
   actionPlanCategoryLabels,
   actionPlanPriorityLabels,
   actionPlanStatusLabels,
-  actionPlanStatusOptions,
-  getCategoryBadgeClass,
-  getDueDateBadgeClass,
   getPriorityBadgeClass,
   getStatusBadgeClass,
-  getStatusIcon,
 } from "@/components/action-plans/action-plan-utils";
-import FrameworkBadge from "@/components/FrameworkBadge";
-import { SkeletonBlock, SkeletonTable } from "@/components/ui/skeleton-card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -60,223 +34,212 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActionPlan, useActionPlans, useActionPlanStats, useCreateActionPlan, useDeleteActionPlan, useGenerateFromAssessment, useUpdateActionPlan } from "@/hooks/useActionPlans";
+import { useActionPlans, useActionPlanStats, useCreateActionPlan, useDeleteActionPlan, useGenerateFromAssessment, useUpdateActionPlan } from "@/hooks/useActionPlans";
 import { useAssessments } from "@/hooks/useAssessments";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useUsers } from "@/hooks/useUser";
-import type { AssessmentWithRelations, CompanyWithRelations, User } from "@/lib/types";
+import type { Assessment, CompanyWithRelations, User } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   ActionPlanPriority,
   ActionPlanStatus,
   type ActionPlan,
+  type ActionPlanFilters,
   type CreateActionPlanInput,
   type UpdateActionPlanInput,
 } from "@/types/action-plan";
 
-function getResponsibleUsers(users: User[] | undefined) {
-  return (users ?? []).filter((user) => {
-    const role = String(user.role ?? "").toUpperCase();
-    return role.includes("AVALIADOR") || role.includes("COLLABORATOR") || role.includes("COLABORADOR");
-  });
+const statusOptions = ["ALL", ...Object.values(ActionPlanStatus)] as const;
+const priorityOptions = ["ALL", ...Object.values(ActionPlanPriority)] as const;
+
+function isEvaluatorRole(role?: string | null) {
+  const normalized = String(role ?? "").toUpperCase();
+  return normalized === "ADMIN" || normalized === "COLLABORATOR" || normalized === "AVALIADOR";
 }
 
-function formatDueDate(value?: string | null) {
+function formatDueDate(value?: string) {
   if (!value) return "Sem prazo";
-  return format(parseISO(value), "dd/MM/yyyy", { locale: ptBR });
+  const parsed = parseISO(value);
+  return isValid(parsed) ? format(parsed, "dd/MM/yyyy", { locale: ptBR }) : value;
 }
 
-function ActionPlansStatsSkeleton() {
+function getDueDateState(value?: string) {
+  if (!value) return null;
+  const dueDate = startOfDay(parseISO(value));
+  if (!isValid(dueDate)) return null;
+
+  const today = startOfDay(new Date());
+  const nextWeek = new Date(today);
+  nextWeek.setDate(nextWeek.getDate() + 7);
+
+  if (isBefore(dueDate, today)) return "overdue" as const;
+  if (dueDate <= nextWeek) return "soon" as const;
+  return null;
+}
+
+function StatsSkeleton() {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
       {Array.from({ length: 4 }).map((_, index) => (
-        <div key={index} className="rounded-2xl border bg-card p-5">
-          <SkeletonBlock className="h-4 w-24" />
-          <SkeletonBlock className="mt-4 h-8 w-16" />
-          <SkeletonBlock className="mt-3 h-4 w-28" />
-        </div>
+        <Card key={index} className="rounded-2xl">
+          <CardContent className="space-y-3 p-5">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-8 w-14" />
+            <Skeleton className="h-10 w-10 rounded-xl" />
+          </CardContent>
+        </Card>
       ))}
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-card py-16 text-center">
-      <Target className="h-12 w-12 text-muted-foreground/40" />
-      <h3 className="mt-4 text-lg font-semibold">Nenhum plano de acao encontrado</h3>
-      <p className="mt-1 max-w-md text-sm text-muted-foreground">
-        Crie um plano manualmente ou gere planos automaticamente a partir de um assessment.
-      </p>
     </div>
   );
 }
 
 export default function ActionPlansPage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "ADMIN";
+  const navigate = useNavigate();
 
-  const [statusFilter, setStatusFilter] = useState<ActionPlanStatus | "ALL">("ALL");
-  const [priorityFilter, setPriorityFilter] = useState<ActionPlanPriority | "ALL">("ALL");
-  const [companyFilter, setCompanyFilter] = useState<number | null>(null);
-  const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isGenerateOpen, setIsGenerateOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<(typeof statusOptions)[number]>("ALL");
+  const [priorityFilter, setPriorityFilter] = useState<(typeof priorityOptions)[number]>("ALL");
   const [editingPlan, setEditingPlan] = useState<ActionPlan | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<ActionPlan | null>(null);
-  const [selectedAssessmentId, setSelectedAssessmentId] = useState<number | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [selectedAssessmentId, setSelectedAssessmentId] = useState<string>("");
 
-  const filters = {
-    status: statusFilter === "ALL" ? undefined : statusFilter,
-    priority: priorityFilter === "ALL" ? undefined : priorityFilter,
-    companyId: isAdmin ? companyFilter ?? undefined : undefined,
-  };
-
-  const plansQuery = useActionPlans(filters);
-  const statsQuery = useActionPlanStats(isAdmin ? companyFilter ?? undefined : undefined);
   const companiesQuery = useCompanies();
   const usersQuery = useUsers();
   const assessmentsQuery = useAssessments();
-  const detailQuery = useActionPlan(selectedPlanId ?? 0);
 
+  const firstCompanyId = companiesQuery.data?.[0]?.id;
+  const filters = useMemo<Partial<ActionPlanFilters>>(
+    () => ({
+      companyId: user?.role === "CLIENTE" ? firstCompanyId : undefined,
+      status: statusFilter === "ALL" ? undefined : statusFilter,
+      priority: priorityFilter === "ALL" ? undefined : priorityFilter,
+    }),
+    [firstCompanyId, priorityFilter, statusFilter, user?.role],
+  );
+
+  const plansQuery = useActionPlans(filters);
+  const statsQuery = useActionPlanStats(user?.role === "CLIENTE" ? firstCompanyId : undefined);
   const createActionPlan = useCreateActionPlan();
   const updateActionPlan = useUpdateActionPlan();
   const deleteActionPlan = useDeleteActionPlan();
   const generateFromAssessment = useGenerateFromAssessment();
 
+  if (!isEvaluatorRole(user?.role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   const plans = plansQuery.data ?? [];
-  const companies = (companiesQuery.data ?? []) as CompanyWithRelations[];
-  const assessments = (assessmentsQuery.data ?? []) as AssessmentWithRelations[];
-  const responsibleUsers = getResponsibleUsers(usersQuery.data);
-  const selectedPlan = detailQuery.data ?? plans.find((plan) => plan.id === selectedPlanId) ?? null;
-
-  const chartData = [
-    {
-      name: actionPlanPriorityLabels[ActionPlanPriority.ALTA],
-      value: statsQuery.data?.byPriority[ActionPlanPriority.ALTA] ?? 0,
-      color: "#dc2626",
-    },
-    {
-      name: actionPlanPriorityLabels[ActionPlanPriority.MEDIA],
-      value: statsQuery.data?.byPriority[ActionPlanPriority.MEDIA] ?? 0,
-      color: "#ea580c",
-    },
-    {
-      name: actionPlanPriorityLabels[ActionPlanPriority.BAIXA],
-      value: statsQuery.data?.byPriority[ActionPlanPriority.BAIXA] ?? 0,
-      color: "#64748b",
-    },
-  ];
-
-  const companyOptions = companies.map((company) => ({
+  const assessments = (assessmentsQuery.data ?? []) as Assessment[];
+  const companies = ((companiesQuery.data ?? []) as CompanyWithRelations[]).map((company) => ({
     id: company.id,
     name: company.name,
   }));
+  const responsibles = ((usersQuery.data ?? []) as User[])
+    .filter((candidate) => {
+      const role = String(candidate.role ?? "").toUpperCase();
+      return role === "ADMIN" || role === "COLLABORATOR" || role === "AVALIADOR";
+    })
+    .map((responsible) => ({
+      id: responsible.id,
+      name: responsible.name ?? responsible.email,
+      email: responsible.email,
+    }));
 
-  const assessmentOptions = assessments.map((assessment) => ({
-    id: assessment.id,
-    companyId: assessment.companyId,
-    companyName: assessment.company?.name,
-  }));
+  const statCards = [
+    {
+      title: "Total",
+      value: statsQuery.data?.total ?? 0,
+      icon: ListChecks,
+      tone: "text-slate-600",
+    },
+    {
+      title: "Pendentes",
+      value: statsQuery.data?.porStatus.PENDENTE ?? 0,
+      icon: Clock,
+      tone: "text-yellow-500",
+    },
+    {
+      title: "Em Andamento",
+      value: statsQuery.data?.porStatus.EM_ANDAMENTO ?? 0,
+      icon: PlayCircle,
+      tone: "text-blue-500",
+    },
+    {
+      title: "Concluídos",
+      value: statsQuery.data?.porStatus.CONCLUIDO ?? 0,
+      icon: CheckCircle2,
+      tone: "text-green-500",
+    },
+  ];
 
-  const selectedCompanyIdForForm = editingPlan?.companyId ?? companyFilter ?? undefined;
-  const selectedAssessment = selectedAssessmentId
-    ? assessments.find((assessment) => assessment.id === selectedAssessmentId)
-    : undefined;
-
-  async function handleCreateOrUpdate(payload: CreateActionPlanInput | UpdateActionPlanInput) {
+  const handleSubmit = async (payload: CreateActionPlanInput | UpdateActionPlanInput) => {
     try {
       if (editingPlan) {
-        await updateActionPlan.mutateAsync({
-          id: editingPlan.id,
-          payload,
-        });
-        toast.success("Plano de acao atualizado com sucesso.");
+        await updateActionPlan.mutateAsync({ id: editingPlan.id, payload });
+        toast.success("Plano atualizado com sucesso.");
       } else {
         await createActionPlan.mutateAsync(payload as CreateActionPlanInput);
-        toast.success("Plano de acao criado com sucesso.");
+        toast.success("Plano criado com sucesso.");
       }
       setEditingPlan(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Falha ao salvar plano de acao.");
+      toast.error(error instanceof Error ? error.message : "Falha ao salvar plano.");
+      throw error;
     }
-  }
+  };
 
-  async function handleStatusChange(status: ActionPlanStatus) {
-    if (!selectedPlan) return;
+  const handleDelete = async (planId: number) => {
     try {
-      await updateActionPlan.mutateAsync({
-        id: selectedPlan.id,
-        payload: { status },
-      });
-      toast.success("Status do plano atualizado.");
+      await deleteActionPlan.mutateAsync(planId);
+      toast.success("Plano removido com sucesso.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Falha ao atualizar status.");
-    }
-  }
-
-  async function handleDelete() {
-    if (!deleteTarget) return;
-    try {
-      await deleteActionPlan.mutateAsync(deleteTarget.id);
-      toast.success("Plano de acao removido com sucesso.");
-      if (selectedPlanId === deleteTarget.id) {
-        setSelectedPlanId(null);
+      if (error instanceof Error && error.message === "__ACTION_PLAN_DELETE_CANCELLED__") {
+        return;
       }
-      setDeleteTarget(null);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Falha ao excluir plano de acao.");
+      toast.error(error instanceof Error ? error.message : "Falha ao excluir plano.");
     }
-  }
+  };
 
-  async function handleGenerate() {
+  const handleGenerate = async () => {
     if (!selectedAssessmentId) {
-      toast.error("Selecione um assessment para gerar os planos.");
+      toast.error("Selecione um assessment.");
       return;
     }
 
     try {
-      const response = await generateFromAssessment.mutateAsync(selectedAssessmentId);
-      toast.success(`${response.count} planos de acao gerados automaticamente!`);
-      setIsGenerateOpen(false);
-      setSelectedAssessmentId(null);
+      const response = await generateFromAssessment.mutateAsync(Number(selectedAssessmentId));
+      toast.success(`${response.count} planos criados automaticamente!`);
+      setGenerateDialogOpen(false);
+      setSelectedAssessmentId("");
+      navigate("/action-plans");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Falha ao gerar planos automaticamente.");
+      toast.error(error instanceof Error ? error.message : "Falha ao gerar planos.");
     }
-  }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Planos de Acao</h1>
+          <h1 className="text-2xl font-bold">Planos de Ação</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Acompanhe as iniciativas corretivas geradas pelas avaliacoes e gerencie a execucao por prioridade.
+            Gerencie os planos corretivos gerados pelos assessments e acompanhe os prazos de execução.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Button
-            variant="outline"
-            className="rounded-xl"
-            onClick={() => setIsGenerateOpen(true)}
-          >
+          <Button type="button" variant="outline" onClick={() => setGenerateDialogOpen(true)}>
             <Sparkles className="mr-2 h-4 w-4" />
             Gerar do Assessment
           </Button>
           <Button
-            className="rounded-xl"
+            type="button"
             onClick={() => {
               setEditingPlan(null);
-              setIsFormOpen(true);
+              setFormOpen(true);
             }}
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -286,107 +249,47 @@ export default function ActionPlansPage() {
       </div>
 
       {statsQuery.isLoading ? (
-        <ActionPlansStatsSkeleton />
+        <StatsSkeleton />
       ) : (
-        <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {[
-              {
-                title: "Total de planos",
-                value: statsQuery.data?.total ?? 0,
-                icon: ListChecks,
-                tone: "text-slate-700 bg-slate-100",
-              },
-              {
-                title: "Pendentes",
-                value: statsQuery.data?.pending ?? 0,
-                icon: Clock,
-                tone: "text-yellow-700 bg-yellow-100",
-              },
-              {
-                title: "Em andamento",
-                value: statsQuery.data?.inProgress ?? 0,
-                icon: PlayCircle,
-                tone: "text-blue-700 bg-blue-100",
-              },
-              {
-                title: "Concluidos",
-                value: statsQuery.data?.completed ?? 0,
-                icon: CheckCircle2,
-                tone: "text-green-700 bg-green-100",
-              },
-            ].map((item) => (
-              <Card key={item.title} className="rounded-2xl border-border/70">
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">{item.title}</p>
-                      <p className="mt-3 text-3xl font-bold">{item.value}</p>
-                    </div>
-                    <div className={cn("rounded-2xl p-3", item.tone)}>
-                      <item.icon className="h-5 w-5" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          <Card className="rounded-2xl border-border/70">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Distribuicao por prioridade</CardTitle>
-            </CardHeader>
-            <CardContent className="h-[240px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                  <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-                  <Tooltip cursor={{ fill: "rgba(148, 163, 184, 0.12)" }} />
-                  <Bar dataKey="value" radius={[12, 12, 0, 0]}>
-                    {chartData.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          {statCards.map((card) => (
+            <Card key={card.title} className="rounded-2xl">
+              <CardContent className="flex items-start justify-between gap-4 p-5">
+                <div>
+                  <p className="text-sm text-muted-foreground">{card.title}</p>
+                  <p className="mt-2 text-3xl font-bold">{card.value}</p>
+                </div>
+                <card.icon className={cn("h-8 w-8", card.tone)} />
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
-      <Card className="rounded-2xl border-border/70">
+      <Card className="rounded-2xl">
         <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <CardTitle className="text-lg">Planos cadastrados</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Filtre por status, prioridade e empresa para localizar rapidamente as acoes abertas.
-            </p>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as ActionPlanStatus | "ALL")}>
-              <SelectTrigger className="min-w-[180px]">
+          <CardTitle className="text-base">Filtros</CardTitle>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as (typeof statusOptions)[number])}>
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">Todos os status</SelectItem>
-                {actionPlanStatusOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                <SelectItem value="ALL">Todos</SelectItem>
+                {Object.values(ActionPlanStatus).map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {actionPlanStatusLabels[status]}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            <Select
-              value={priorityFilter}
-              onValueChange={(value) => setPriorityFilter(value as ActionPlanPriority | "ALL")}
-            >
-              <SelectTrigger className="min-w-[180px]">
+            <Select value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as (typeof priorityOptions)[number])}>
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Prioridade" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">Todas as prioridades</SelectItem>
+                <SelectItem value="ALL">Todos</SelectItem>
                 {Object.values(ActionPlanPriority).map((priority) => (
                   <SelectItem key={priority} value={priority}>
                     {actionPlanPriorityLabels[priority]}
@@ -394,121 +297,102 @@ export default function ActionPlansPage() {
                 ))}
               </SelectContent>
             </Select>
-
-            {isAdmin ? (
-              <Select
-                value={companyFilter ? String(companyFilter) : "ALL"}
-                onValueChange={(value) => setCompanyFilter(value === "ALL" ? null : Number(value))}
-              >
-                <SelectTrigger className="min-w-[180px]">
-                  <SelectValue placeholder="Empresa" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Todas as empresas</SelectItem>
-                  {companies.map((company) => (
-                    <SelectItem key={company.id} value={String(company.id)}>
-                      {company.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : null}
           </div>
+        </CardHeader>
+      </Card>
+
+      <Card className="rounded-2xl">
+        <CardHeader>
+          <CardTitle className="text-base">Planos cadastrados</CardTitle>
         </CardHeader>
         <CardContent>
           {plansQuery.isLoading ? (
-            <SkeletonTable rows={5} />
-          ) : plans.length === 0 ? (
-            <EmptyState />
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <Skeleton key={index} className="h-12 w-full" />
+              ))}
+            </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>#ID</TableHead>
-                  <TableHead>Titulo</TableHead>
+                  <TableHead>#</TableHead>
+                  <TableHead>Título</TableHead>
                   <TableHead>Categoria</TableHead>
-                  <TableHead>Framework</TableHead>
                   <TableHead>Prioridade</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Responsavel</TableHead>
+                  <TableHead>Responsável</TableHead>
                   <TableHead>Prazo</TableHead>
-                  <TableHead className="text-right">Acoes</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {plans.map((plan) => {
-                  const StatusIcon = getStatusIcon(plan.status);
-                  return (
-                    <TableRow key={plan.id}>
-                      <TableCell className="font-semibold">#{plan.id}</TableCell>
-                      <TableCell>
-                        <button
-                          type="button"
-                          className="text-left hover:text-primary"
-                          onClick={() => setSelectedPlanId(plan.id)}
-                        >
-                          <span className="line-clamp-1 font-medium">{plan.title}</span>
-                          <span className="block text-xs text-muted-foreground">
-                            {plan.company?.name ?? `Empresa #${plan.companyId}`}
+                {plans.length ? (
+                  plans.map((plan) => {
+                    const dueDateState = getDueDateState(plan.dueDate);
+                    return (
+                      <TableRow key={plan.id}>
+                        <TableCell className="font-medium">#{plan.id}</TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{plan.title}</p>
+                            <p className="text-xs text-muted-foreground">{plan.frameworkRef || "Sem framework vinculado"}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{actionPlanCategoryLabels[plan.category as keyof typeof actionPlanCategoryLabels] ?? plan.category}</TableCell>
+                        <TableCell>
+                          <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-xs font-medium", getPriorityBadgeClass(plan.priority))}>
+                            {actionPlanPriorityLabels[plan.priority]}
                           </span>
-                        </button>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getCategoryBadgeClass(String(plan.category))}>
-                          {actionPlanCategoryLabels[plan.category as keyof typeof actionPlanCategoryLabels] ?? plan.category}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {plan.frameworkRef ? (
-                          <FrameworkBadge frameworkRef={plan.frameworkRef} fallbackToDefault />
-                        ) : (
-                          <span className="text-sm text-muted-foreground">Nao informado</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getPriorityBadgeClass(plan.priority)}>
-                          {actionPlanPriorityLabels[plan.priority]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusBadgeClass(plan.status)}>
-                          <StatusIcon className="mr-1 h-3.5 w-3.5" />
-                          {actionPlanStatusLabels[plan.status]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{plan.responsible?.name ?? "Nao atribuido"}</TableCell>
-                      <TableCell>
-                        <Badge className={getDueDateBadgeClass(plan)}>{formatDueDate(plan.dueDate)}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" onClick={() => setSelectedPlanId(plan.id)}>
-                            Ver
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setEditingPlan(plan);
-                              setIsFormOpen(true);
-                            }}
+                        </TableCell>
+                        <TableCell>
+                          <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-xs font-medium", getStatusBadgeClass(plan.status))}>
+                            {actionPlanStatusLabels[plan.status]}
+                          </span>
+                        </TableCell>
+                        <TableCell>{plan.responsible?.name ?? "Não atribuído"}</TableCell>
+                        <TableCell>
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1 text-sm",
+                              dueDateState === "overdue" && "text-red-600",
+                              dueDateState === "soon" && "text-yellow-600",
+                            )}
                           >
-                            Editar
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => setDeleteTarget(plan)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Excluir
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                            {dueDateState === "overdue" ? <AlertTriangle className="h-4 w-4" /> : null}
+                            {formatDueDate(plan.dueDate)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditingPlan(plan);
+                                setFormOpen(true);
+                              }}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Editar
+                            </Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => void handleDelete(plan.id)}>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                      Nenhum plano encontrado para os filtros atuais.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           )}
@@ -516,112 +400,54 @@ export default function ActionPlansPage() {
       </Card>
 
       <ActionPlanForm
-        open={isFormOpen}
+        open={formOpen}
         onOpenChange={(open) => {
-          setIsFormOpen(open);
+          setFormOpen(open);
           if (!open) setEditingPlan(null);
         }}
-        onSubmit={handleCreateOrUpdate}
+        onSubmit={handleSubmit}
         isSubmitting={createActionPlan.isPending || updateActionPlan.isPending}
         plan={editingPlan}
-        companies={companyOptions}
-        responsibles={responsibleUsers.map((responsible) => ({
-          id: responsible.id,
-          name: responsible.name ?? responsible.email,
-          email: responsible.email,
-          role: responsible.role,
+        companies={companies}
+        responsibles={responsibles}
+        assessments={assessments.map((assessment) => ({
+          id: assessment.id,
+          companyId: assessment.companyId,
+          companyName: assessment.company?.name,
         }))}
-        assessments={assessmentOptions}
-        fixedCompanyId={!editingPlan && !isAdmin ? selectedCompanyIdForForm : undefined}
       />
 
-      <ActionPlanDetail
-        open={!!selectedPlanId}
-        onOpenChange={(open) => {
-          if (!open) setSelectedPlanId(null);
-        }}
-        plan={selectedPlan}
-        onStatusChange={handleStatusChange}
-        isUpdatingStatus={updateActionPlan.isPending}
-        onEdit={() => {
-          if (!selectedPlan) return;
-          setEditingPlan(selectedPlan);
-          setSelectedPlanId(null);
-          setIsFormOpen(true);
-        }}
-      />
-
-      <Dialog open={isGenerateOpen} onOpenChange={setIsGenerateOpen}>
+      <Dialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Gerar do Assessment</DialogTitle>
-            <DialogDescription>
-              Selecione um assessment para criar automaticamente os planos de acao sugeridos.
-            </DialogDescription>
+            <DialogDescription>Selecione um assessment para criar os planos de ação automaticamente.</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <Select
-              value={selectedAssessmentId ? String(selectedAssessmentId) : undefined}
-              onValueChange={(value) => setSelectedAssessmentId(Number(value))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o assessment" />
-              </SelectTrigger>
-              <SelectContent>
-                {assessments.map((assessment) => (
-                  <SelectItem key={assessment.id} value={String(assessment.id)}>
-                    {assessment.company?.name
-                      ? `#${assessment.id} - ${assessment.company.name}`
-                      : `Assessment #${assessment.id}`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {selectedAssessment ? (
-              <div className="rounded-2xl border bg-muted/20 p-4 text-sm">
-                <p className="font-medium">Assessment selecionado</p>
-                <p className="mt-1 text-muted-foreground">
-                  Empresa: {selectedAssessment.company?.name ?? `Empresa #${selectedAssessment.companyId}`}
-                </p>
-                <p className="text-muted-foreground">Status: {selectedAssessment.status}</p>
-              </div>
-            ) : null}
-          </div>
+          <Select value={selectedAssessmentId} onValueChange={setSelectedAssessmentId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione o assessment" />
+            </SelectTrigger>
+            <SelectContent>
+              {assessments.map((assessment) => (
+                <SelectItem key={assessment.id} value={String(assessment.id)}>
+                  {assessment.company?.name ? `#${assessment.id} - ${assessment.company.name}` : `Assessment #${assessment.id}`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsGenerateOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setGenerateDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={() => void handleGenerate()} disabled={generateFromAssessment.isPending}>
-              {generateFromAssessment.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Gerar planos
+            <Button type="button" onClick={() => void handleGenerate()} disabled={generateFromAssessment.isPending}>
+              <Target className="mr-2 h-4 w-4" />
+              Gerar Planos
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir plano de acao?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Essa acao remove permanentemente o plano
-              {deleteTarget ? ` "${deleteTarget.title}"` : ""}.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => void handleDelete()}
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

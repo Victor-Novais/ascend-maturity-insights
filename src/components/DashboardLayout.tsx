@@ -28,9 +28,9 @@ const adminNavItems = [
   { label: "Questoes", icon: LibraryBig, path: "/dashboard/questions" },
   { label: "Empresas", icon: Building2, path: "/dashboard/companies" },
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
+  { label: "Planos de Acao", icon: Target, path: "/action-plans" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
   { label: "Analytics", icon: BarChart2, path: "/analytics" },
-  { label: "Planos de Acao", icon: Target, path: "/action-plans" },
   { label: "Gestao de Riscos", icon: AlertTriangle, path: "/risks" },
   { label: "Auditoria", icon: Shield, path: "/audit-logs" },
 ];
@@ -41,16 +41,15 @@ const clienteNavItems = [
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
   { label: "Analytics", icon: BarChart2, path: "/analytics" },
-  { label: "Planos de Acao", icon: Target, path: "/action-plans" },
   { label: "Gestao de Riscos", icon: AlertTriangle, path: "/risks" },
 ];
 
 const collaboratorNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
+  { label: "Planos de Acao", icon: Target, path: "/action-plans" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
   { label: "Analytics", icon: BarChart2, path: "/analytics" },
-  { label: "Planos de Acao", icon: Target, path: "/action-plans" },
   { label: "Gestao de Riscos", icon: AlertTriangle, path: "/risks" },
 ];
 
@@ -79,7 +78,7 @@ export default function DashboardLayout() {
   const navItems =
     user?.role === "ADMIN"
       ? adminNavItems
-      : user?.role === "COLLABORATOR"
+      : user?.role === "COLLABORATOR" || user?.role === ("AVALIADOR" as typeof user.role)
         ? collaboratorNavItems
         : clienteNavItems;
   const auditFailureCount = auditFailuresQuery.data?.total ?? 0;

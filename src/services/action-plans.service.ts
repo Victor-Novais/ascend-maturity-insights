@@ -16,6 +16,9 @@ type ActionPlanStatsResponse =
   | ActionPlanStats
   | {
       total?: number;
+      porStatus?: Partial<Record<ActionPlanStatus, number>>;
+      statuses?: Partial<Record<ActionPlanStatus, number>>;
+      byStatus?: Partial<Record<ActionPlanStatus, number>>;
       pending?: number;
       inProgress?: number;
       completed?: number;
@@ -40,7 +43,7 @@ function normalizeList(response: ActionPlanListResponse): ActionPlan[] {
 }
 
 function normalizeStats(response: ActionPlanStatsResponse): ActionPlanStats {
-  const byPriority =
+  const porPrioridade =
     response.byPriority ??
     response.priorities ??
     response.porPrioridade ?? {
@@ -49,17 +52,30 @@ function normalizeStats(response: ActionPlanStatsResponse): ActionPlanStats {
       [ActionPlanPriority.BAIXA]: 0,
     };
 
+  const porStatus =
+    response.porStatus ??
+    response.statuses ??
+    response.byStatus ?? {
+      [ActionPlanStatus.PENDENTE]: response.pending ?? response.pendentes ?? 0,
+      [ActionPlanStatus.EM_ANDAMENTO]: response.inProgress ?? response.emAndamento ?? 0,
+      [ActionPlanStatus.CONCLUIDO]: response.completed ?? response.concluidos ?? 0,
+      [ActionPlanStatus.CANCELADO]: response.canceled ?? response.cancelados ?? 0,
+    };
+
   return {
     total: Number(response.total ?? 0),
-    pending: Number(response.pending ?? response.pendentes ?? 0),
-    inProgress: Number(response.inProgress ?? response.emAndamento ?? 0),
-    completed: Number(response.completed ?? response.concluidos ?? 0),
-    canceled: Number(response.canceled ?? response.cancelados ?? 0),
-    byPriority: {
-      [ActionPlanPriority.ALTA]: Number(byPriority[ActionPlanPriority.ALTA] ?? 0),
-      [ActionPlanPriority.MEDIA]: Number(byPriority[ActionPlanPriority.MEDIA] ?? 0),
-      [ActionPlanPriority.BAIXA]: Number(byPriority[ActionPlanPriority.BAIXA] ?? 0),
+    porStatus: {
+      [ActionPlanStatus.PENDENTE]: Number(porStatus[ActionPlanStatus.PENDENTE] ?? 0),
+      [ActionPlanStatus.EM_ANDAMENTO]: Number(porStatus[ActionPlanStatus.EM_ANDAMENTO] ?? 0),
+      [ActionPlanStatus.CONCLUIDO]: Number(porStatus[ActionPlanStatus.CONCLUIDO] ?? 0),
+      [ActionPlanStatus.CANCELADO]: Number(porStatus[ActionPlanStatus.CANCELADO] ?? 0),
     },
+    porPrioridade: {
+      [ActionPlanPriority.ALTA]: Number(porPrioridade[ActionPlanPriority.ALTA] ?? 0),
+      [ActionPlanPriority.MEDIA]: Number(porPrioridade[ActionPlanPriority.MEDIA] ?? 0),
+      [ActionPlanPriority.BAIXA]: Number(porPrioridade[ActionPlanPriority.BAIXA] ?? 0),
+    },
+    vencendo_em_7_dias: Number((response as { vencendo_em_7_dias?: number }).vencendo_em_7_dias ?? 0),
   };
 }
 

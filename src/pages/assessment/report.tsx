@@ -61,7 +61,7 @@ export default function AssessmentReportPage() {
   const handleGenerateActionPlans = async () => {
     try {
       const response = await generateFromAssessment.mutateAsync(assessmentId);
-      toast.success(`${response.count} planos de acao gerados automaticamente!`);
+      toast.success(`${response.count} planos criados automaticamente!`);
       navigate("/action-plans");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao gerar planos de acao.");

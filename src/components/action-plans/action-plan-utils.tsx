@@ -24,14 +24,14 @@ export const actionPlanCategoryLabels: Record<ActionPlanCategory, string> = {
 
 export const actionPlanPriorityLabels: Record<ActionPlanPriority, string> = {
   [ActionPlanPriority.ALTA]: "Alta",
-  [ActionPlanPriority.MEDIA]: "Media",
+  [ActionPlanPriority.MEDIA]: "Média",
   [ActionPlanPriority.BAIXA]: "Baixa",
 };
 
 export const actionPlanStatusLabels: Record<ActionPlanStatus, string> = {
   [ActionPlanStatus.PENDENTE]: "Pendente",
   [ActionPlanStatus.EM_ANDAMENTO]: "Em andamento",
-  [ActionPlanStatus.CONCLUIDO]: "Concluido",
+  [ActionPlanStatus.CONCLUIDO]: "Concluído",
   [ActionPlanStatus.CANCELADO]: "Cancelado",
 };
 

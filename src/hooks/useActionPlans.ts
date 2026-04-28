@@ -23,7 +23,7 @@ export function useActionPlan(id: number) {
 
 export function useActionPlanStats(companyId?: number) {
   return useQuery({
-    queryKey: ["action-plans", "stats", companyId],
+    queryKey: ["action-plans-stats", companyId],
     queryFn: () => actionPlansService.getStats(companyId),
   });
 }
@@ -33,7 +33,8 @@ export function useCreateActionPlan() {
   return useMutation({
     mutationFn: (payload: CreateActionPlanInput) => actionPlansService.create(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["action-plans"] });
+      void queryClient.invalidateQueries({ queryKey: ["action-plans"] });
+      void queryClient.invalidateQueries({ queryKey: ["action-plans-stats"] });
     },
   });
 }
@@ -43,7 +44,8 @@ export function useGenerateFromAssessment() {
   return useMutation({
     mutationFn: (assessmentId: number) => actionPlansService.generateFromAssessment(assessmentId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["action-plans"] });
+      void queryClient.invalidateQueries({ queryKey: ["action-plans"] });
+      void queryClient.invalidateQueries({ queryKey: ["action-plans-stats"] });
     },
   });
 }
@@ -54,8 +56,9 @@ export function useUpdateActionPlan() {
     mutationFn: ({ id, payload }: { id: number; payload: UpdateActionPlanInput }) =>
       actionPlansService.update(id, payload),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["action-plans"] });
-      queryClient.invalidateQueries({ queryKey: ["action-plans", variables.id] });
+      void queryClient.invalidateQueries({ queryKey: ["action-plans"] });
+      void queryClient.invalidateQueries({ queryKey: ["action-plans", variables.id] });
+      void queryClient.invalidateQueries({ queryKey: ["action-plans-stats"] });
     },
   });
 }
@@ -63,9 +66,15 @@ export function useUpdateActionPlan() {
 export function useDeleteActionPlan() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => actionPlansService.remove(id),
+    mutationFn: async (id: number) => {
+      if (!window.confirm("Deseja realmente excluir este plano de ação?")) {
+        throw new Error("__ACTION_PLAN_DELETE_CANCELLED__");
+      }
+      return actionPlansService.remove(id);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["action-plans"] });
+      void queryClient.invalidateQueries({ queryKey: ["action-plans"] });
+      void queryClient.invalidateQueries({ queryKey: ["action-plans-stats"] });
     },
   });
 }

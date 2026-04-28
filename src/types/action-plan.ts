@@ -1,96 +1,95 @@
-import type { Company, QuestionCategory, User } from "@/lib/types";
+export type ActionPlanStatus = "PENDENTE" | "EM_ANDAMENTO" | "CONCLUIDO" | "CANCELADO";
+export type ActionPlanPriority = "ALTA" | "MEDIA" | "BAIXA";
+export type ActionPlanCategory =
+  | "GOVERNANCA"
+  | "SEGURANCA"
+  | "PROCESSOS"
+  | "INFRAESTRUTURA"
+  | "CULTURA";
 
-export enum ActionPlanPriority {
-  ALTA = "ALTA",
-  MEDIA = "MEDIA",
-  BAIXA = "BAIXA",
-}
+export const ActionPlanStatus = {
+  PENDENTE: "PENDENTE",
+  EM_ANDAMENTO: "EM_ANDAMENTO",
+  CONCLUIDO: "CONCLUIDO",
+  CANCELADO: "CANCELADO",
+} as const satisfies Record<ActionPlanStatus, ActionPlanStatus>;
 
-export enum ActionPlanStatus {
-  PENDENTE = "PENDENTE",
-  EM_ANDAMENTO = "EM_ANDAMENTO",
-  CONCLUIDO = "CONCLUIDO",
-  CANCELADO = "CANCELADO",
-}
+export const ActionPlanPriority = {
+  ALTA: "ALTA",
+  MEDIA: "MEDIA",
+  BAIXA: "BAIXA",
+} as const satisfies Record<ActionPlanPriority, ActionPlanPriority>;
 
-export enum ActionPlanCategory {
-  GOVERNANCA = "GOVERNANCA",
-  SEGURANCA = "SEGURANCA",
-  PROCESSOS = "PROCESSOS",
-  INFRAESTRUTURA = "INFRAESTRUTURA",
-  CULTURA = "CULTURA",
-}
+export const ActionPlanCategory = {
+  GOVERNANCA: "GOVERNANCA",
+  SEGURANCA: "SEGURANCA",
+  PROCESSOS: "PROCESSOS",
+  INFRAESTRUTURA: "INFRAESTRUTURA",
+  CULTURA: "CULTURA",
+} as const satisfies Record<ActionPlanCategory, ActionPlanCategory>;
 
 export interface ActionPlan {
   id: number;
-  assessmentId: number | null;
+  assessmentId: number;
   companyId: number;
   title: string;
   description: string;
-  category: ActionPlanCategory | QuestionCategory | string;
-  frameworkRef: string | null;
+  category: string;
+  frameworkRef?: string;
   priority: ActionPlanPriority;
   status: ActionPlanStatus;
-  responsibleId: string | null;
-  dueDate: string | null;
-  completedAt: string | null;
-  observations: string | null;
-  createdAt?: string;
-  updatedAt?: string;
-  responsible?: Pick<User, "id" | "name" | "email" | "role"> | null;
-  company?: Pick<Company, "id" | "name" | "segment"> | null;
-  assessment?: {
-    id: number;
-    status?: string;
-    createdAt?: string;
-    updatedAt?: string;
-  } | null;
+  responsibleId?: string;
+  responsible?: { id: string; name: string; email: string };
+  dueDate?: string;
+  completedAt?: string;
+  observations?: string;
+  createdAt: string;
+  updatedAt: string;
+  company?: { id: number; name: string; segment?: string };
+  assessment?: { id: number; status?: string; createdAt?: string; updatedAt?: string };
 }
 
 export interface ActionPlanStats {
   total: number;
-  pending: number;
-  inProgress: number;
-  completed: number;
-  canceled: number;
-  byPriority: Record<ActionPlanPriority, number>;
+  porStatus: Record<ActionPlanStatus, number>;
+  porPrioridade: Record<ActionPlanPriority, number>;
+  vencendo_em_7_dias: number;
 }
 
 export interface ActionPlanFilters {
   companyId?: number;
   assessmentId?: number;
-  responsibleId?: string;
   status?: ActionPlanStatus;
   priority?: ActionPlanPriority;
 }
 
 export interface CreateActionPlanInput {
-  assessmentId?: number | null;
+  assessmentId?: number;
   companyId: number;
   title: string;
   description: string;
   category: ActionPlanCategory;
-  frameworkRef?: string | null;
+  frameworkRef?: string;
   priority: ActionPlanPriority;
   status?: ActionPlanStatus;
-  responsibleId?: string | null;
-  dueDate?: string | null;
-  observations?: string | null;
+  responsibleId?: string;
+  dueDate?: string;
+  observations?: string;
 }
 
 export interface UpdateActionPlanInput {
-  assessmentId?: number | null;
+  assessmentId?: number;
   companyId?: number;
   title?: string;
   description?: string;
   category?: ActionPlanCategory;
-  frameworkRef?: string | null;
+  frameworkRef?: string;
   priority?: ActionPlanPriority;
   status?: ActionPlanStatus;
-  responsibleId?: string | null;
-  dueDate?: string | null;
-  completedAt?: string | null;
-  observations?: string | null;
+  responsibleId?: string;
+  dueDate?: string;
+  completedAt?: string;
+  observations?: string;
 }
 
 export interface GenerateActionPlansResponse {
