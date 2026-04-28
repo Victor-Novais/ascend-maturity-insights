@@ -83,103 +83,97 @@ export default function QuestionsPage() {
         </Button>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-6">
-          <Card className="rounded-2xl shadow-sm">
-            <CardHeader className="space-y-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <CardTitle className="text-base">Filtros de framework</CardTitle>
-                <p className="text-sm text-muted-foreground">Use os atalhos para consultar o endpoint dedicado.</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {frameworkFilterOptions.map((option) => (
-                  <Button
-                    key={option.value}
-                    type="button"
-                    variant={selectedFramework === option.value ? "default" : "outline"}
-                    className="rounded-full"
-                    onClick={() => setSelectedFramework(option.value)}
-                  >
-                    {option.label}
-                  </Button>
+      <FrameworkCoverageWidget />
+
+      <Card className="rounded-2xl shadow-sm">
+        <CardHeader className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="text-base">Filtros de framework</CardTitle>
+            <p className="text-sm text-muted-foreground">Use os atalhos para consultar o endpoint dedicado.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {frameworkFilterOptions.map((option) => (
+              <Button
+                key={option.value}
+                type="button"
+                variant={selectedFramework === option.value ? "default" : "outline"}
+                className="rounded-full"
+                onClick={() => setSelectedFramework(option.value)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+        </CardHeader>
+      </Card>
+
+      <Card className="rounded-2xl shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Questoes cadastradas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {questionsQuery.isLoading ? (
+            <SkeletonCard />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Pergunta</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Framework</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Acoes</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {questions.map((question) => (
+                  <TableRow key={question.id}>
+                    <TableCell className="max-w-md">
+                      <div className="space-y-1">
+                        <p className="font-medium">{question.text}</p>
+                        {question.hint ? (
+                          <p className="text-xs text-muted-foreground">{question.hint}</p>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell>{categoryLabels[question.category]}</TableCell>
+                    <TableCell>{responseTypeLabels[question.responseType]}</TableCell>
+                    <TableCell>
+                      <FrameworkBadge
+                        frameworkType={question.frameworkType}
+                        frameworkRef={question.frameworkRef}
+                        frameworkNote={question.frameworkNote}
+                        fallbackToDefault
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={question.isActive ? "text-emerald-600 font-medium" : "text-muted-foreground font-medium"}
+                      >
+                        {question.isActive ? "Ativa" : "Inativa"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => handleEdit(question)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Editar
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </div>
-            </CardHeader>
-          </Card>
-
-          <Card className="rounded-2xl shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Questoes cadastradas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {questionsQuery.isLoading ? (
-                <SkeletonCard />
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Pergunta</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Framework</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Acoes</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {questions.map((question) => (
-                      <TableRow key={question.id}>
-                        <TableCell className="max-w-md">
-                          <div className="space-y-1">
-                            <p className="font-medium">{question.text}</p>
-                            {question.hint ? (
-                              <p className="text-xs text-muted-foreground">{question.hint}</p>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                        <TableCell>{categoryLabels[question.category]}</TableCell>
-                        <TableCell>{responseTypeLabels[question.responseType]}</TableCell>
-                        <TableCell>
-                          <FrameworkBadge
-                            frameworkType={question.frameworkType}
-                            frameworkRef={question.frameworkRef}
-                            frameworkNote={question.frameworkNote}
-                            fallbackToDefault
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={question.isActive ? "text-emerald-600 font-medium" : "text-muted-foreground font-medium"}
-                          >
-                            {question.isActive ? "Ativa" : "Inativa"}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button type="button" variant="ghost" size="sm" onClick={() => handleEdit(question)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Editar
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {!questions.length ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                          Nenhuma questao encontrada para o filtro selecionado.
-                        </TableCell>
-                      </TableRow>
-                    ) : null}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div>
-          <FrameworkCoverageWidget />
-        </div>
-      </div>
+                {!questions.length ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                      Nenhuma questao encontrada para o filtro selecionado.
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       <QuestionFormDialog
         open={dialogOpen}

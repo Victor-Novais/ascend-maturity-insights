@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
@@ -29,10 +28,16 @@ export default function FrameworkBadge({
 
   const type = getFrameworkType(frameworkType);
   const badge = (
-    <div className={cn("inline-flex items-center gap-2", className)}>
-      <Badge className={frameworkBadgeClasses[type]}>{frameworkShortLabels[type]}</Badge>
-      {frameworkRef ? <span className="text-xs font-medium text-muted-foreground">{frameworkRef}</span> : null}
-    </div>
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+        frameworkBadgeClasses[type],
+        className,
+      )}
+    >
+      {frameworkShortLabels[type]}
+      {frameworkRef ? <span className="ml-1 opacity-70">{frameworkRef}</span> : null}
+    </span>
   );
 
   if (!frameworkNote?.trim()) {
@@ -42,7 +47,7 @@ export default function FrameworkBadge({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div>{badge}</div>
+        {badge}
       </TooltipTrigger>
       <TooltipContent className="max-w-xs text-sm">
         {frameworkNote}

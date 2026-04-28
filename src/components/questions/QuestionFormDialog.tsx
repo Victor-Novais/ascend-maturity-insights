@@ -50,18 +50,16 @@ const questionSchema = z
     evidenceRequired: z.boolean(),
     hint: z.string().optional(),
     isActive: z.boolean(),
-    frameworkType: z.enum(["COBIT", "ITIL", "ISO_27000", "PROPRIO"]),
-    frameworkRef: z.string().optional(),
-    frameworkNote: z.string().optional(),
+    frameworkType: z.enum(["COBIT", "ITIL", "ISO_27000", "PROPRIO"]).default("PROPRIO"),
+    frameworkRef: z.string().max(100, "A referencia deve ter no maximo 100 caracteres").optional(),
+    frameworkNote: z.string().max(500, "A justificativa deve ter no maximo 500 caracteres").optional(),
   })
-  .superRefine((data, ctx) => {
-    if (data.frameworkType !== "PROPRIO" && !data.frameworkRef?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["frameworkRef"],
-        message: "Referencia obrigatoria para frameworks externos",
-      });
-    }
+  .refine((data) => {
+    if (data.frameworkType !== "PROPRIO" && !data.frameworkRef?.trim()) return false;
+    return true;
+  }, {
+    message: "Referência obrigatória para frameworks externos",
+    path: ["frameworkRef"],
   });
 
 type FormValues = z.infer<typeof questionSchema>;
@@ -273,9 +271,9 @@ export default function QuestionFormDialog({
                     name="frameworkRef"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Referencia do framework</FormLabel>
+                        <FormLabel>Referência do Controle</FormLabel>
                         <FormControl>
-                          <Input placeholder="Ex: APO12.01, A.9.1.1, Continual Improvement" {...field} />
+                          <Input placeholder="Ex: APO12.01, A.9.1.1" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -288,10 +286,10 @@ export default function QuestionFormDialog({
                   name="frameworkNote"
                   render={({ field }) => (
                     <FormItem className="sm:col-span-2">
-                      <FormLabel>Justificativa</FormLabel>
+                      <FormLabel>Nota de Justificativa</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Justificativa da associacao a este controle..."
+                          placeholder="Justificativa da associação a este controle..."
                           className="min-h-24"
                           {...field}
                         />

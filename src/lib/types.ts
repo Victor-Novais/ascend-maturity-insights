@@ -45,6 +45,20 @@ export type QuestionCategory = "GOVERNANCA" | "SEGURANCA" | "PROCESSOS" | "INFRA
 export type ResponseType = "YES_NO" | "SCALE";
 export type FrameworkType = "COBIT" | "ITIL" | "ISO_27000" | "PROPRIO";
 
+export const FRAMEWORK_LABELS: Record<FrameworkType, string> = {
+  COBIT: "COBIT 2019",
+  ITIL: "ITIL 4",
+  ISO_27000: "ISO/IEC 27000",
+  PROPRIO: "Modelo Próprio",
+};
+
+export const FRAMEWORK_COLORS: Record<FrameworkType, string> = {
+  COBIT: "bg-blue-100 text-blue-800 border-blue-200",
+  ITIL: "bg-green-100 text-green-800 border-green-200",
+  ISO_27000: "bg-orange-100 text-orange-800 border-orange-200",
+  PROPRIO: "bg-gray-100 text-gray-800 border-gray-200",
+};
+
 /** Legacy global question bank (ADMIN-managed). */
 export interface Question {
   id: number;

@@ -1,17 +1,12 @@
-import type { FrameworkType } from "@/lib/types";
+import { FRAMEWORK_COLORS, FRAMEWORK_LABELS, type FrameworkType } from "@/lib/types";
 
-export const frameworkLabels: Record<FrameworkType, string> = {
-  COBIT: "COBIT 2019",
-  ITIL: "ITIL 4",
-  ISO_27000: "ISO/IEC 27000",
-  PROPRIO: "Modelo Proprio",
-};
+export const frameworkLabels = FRAMEWORK_LABELS;
 
 export const frameworkShortLabels: Record<FrameworkType, string> = {
   COBIT: "COBIT",
   ITIL: "ITIL",
   ISO_27000: "ISO 27000",
-  PROPRIO: "Proprio",
+  PROPRIO: "Próprio",
 };
 
 export const frameworkColors: Record<FrameworkType, string> = {
@@ -21,12 +16,7 @@ export const frameworkColors: Record<FrameworkType, string> = {
   PROPRIO: "#6B7280",
 };
 
-export const frameworkBadgeClasses: Record<FrameworkType, string> = {
-  COBIT: "border-blue-200 bg-blue-50 text-blue-700",
-  ITIL: "border-green-200 bg-green-50 text-green-700",
-  ISO_27000: "border-orange-200 bg-orange-50 text-orange-700",
-  PROPRIO: "border-slate-200 bg-slate-100 text-slate-700",
-};
+export const frameworkBadgeClasses = FRAMEWORK_COLORS;
 
 export const frameworkOptions: Array<{ value: FrameworkType; label: string }> = [
   { value: "PROPRIO", label: frameworkLabels.PROPRIO },
@@ -40,7 +30,7 @@ export const frameworkFilterOptions: Array<{ value: "ALL" | FrameworkType; label
   { value: "COBIT", label: "COBIT" },
   { value: "ITIL", label: "ITIL" },
   { value: "ISO_27000", label: "ISO 27000" },
-  { value: "PROPRIO", label: "Proprio" },
+  { value: "PROPRIO", label: "Próprio" },
 ];
 
 export function getFrameworkType(value: unknown): FrameworkType {

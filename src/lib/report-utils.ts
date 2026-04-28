@@ -38,6 +38,13 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+function normalizeFrameworkType(value: unknown): FrameworkType | undefined {
+  if (value === "COBIT" || value === "ITIL" || value === "ISO_27000" || value === "PROPRIO") {
+    return getFrameworkType(value);
+  }
+  return undefined;
+}
+
 export function getCategoryScores(
   assessment: AssessmentWithRelations,
 ): Record<QuestionCategory, number> | undefined {
@@ -91,7 +98,7 @@ export function normalizeStrengthsWeaknesses(
       return {
         title,
         summary: typeof item.summary === "string" ? item.summary : "",
-        frameworkType: getFrameworkType(
+        frameworkType: normalizeFrameworkType(
           item.frameworkType ??
             framework?.type ??
             question?.frameworkType,
