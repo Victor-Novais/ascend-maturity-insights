@@ -1,13 +1,10 @@
 import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { AlertTriangle, CalendarIcon, Loader2, ShieldAlert, ShieldCheck, ShieldQuestion } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -25,7 +22,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,7 +54,7 @@ const riskSchema = z.object({
   treatment: z.nativeEnum(RiskTreatment),
   status: z.nativeEnum(RiskStatus),
   responsibleId: z.string().optional(),
-  reviewDate: z.date().optional(),
+  reviewDate: z.string().optional(),
   companyId: z.number().int().positive("Selecione uma empresa"),
   assessmentId: z.number().int().positive().optional().nullable(),
 });
@@ -82,11 +78,11 @@ type Props = {
 };
 
 const scoreLabels = [
-  { value: 1, label: "Muito Baixo", icon: ShieldQuestion },
-  { value: 2, label: "Baixo", icon: ShieldQuestion },
-  { value: 3, label: "Medio", icon: AlertTriangle },
-  { value: 4, label: "Alto", icon: ShieldAlert },
-  { value: 5, label: "Muito Alto", icon: ShieldCheck },
+  { value: 1, label: "Muito Baixo", tone: "border-green-200 bg-green-50 text-green-700" },
+  { value: 2, label: "Baixo", tone: "border-lime-200 bg-lime-50 text-lime-700" },
+  { value: 3, label: "Medio", tone: "border-yellow-200 bg-yellow-50 text-yellow-700" },
+  { value: 4, label: "Alto", tone: "border-orange-200 bg-orange-50 text-orange-700" },
+  { value: 5, label: "Muito Alto", tone: "border-red-200 bg-red-50 text-red-700" },
 ];
 
 function getDefaultValues(risk: Risk | null | undefined, fixedCompanyId?: number): RiskFormValues {
@@ -100,7 +96,7 @@ function getDefaultValues(risk: Risk | null | undefined, fixedCompanyId?: number
     treatment: (risk?.treatment as RiskTreatment) ?? RiskTreatment.MITIGAR,
     status: (risk?.status as RiskStatus) ?? RiskStatus.IDENTIFICADO,
     responsibleId: risk?.responsibleId ?? "",
-    reviewDate: risk?.reviewDate ? new Date(risk.reviewDate) : undefined,
+    reviewDate: risk?.reviewDate ?? "",
     companyId: risk?.companyId ?? fixedCompanyId ?? 0,
     assessmentId: risk?.assessmentId ?? null,
   };
@@ -125,7 +121,9 @@ export default function RiskForm({
   const companyId = form.watch("companyId");
   const probability = useWatch({ control: form.control, name: "probability" }) ?? 1;
   const impact = useWatch({ control: form.control, name: "impact" }) ?? 1;
-  const score = Number(probability) * Number(impact);
+  const probMap: Record<number, number> = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 5 };
+  const impMap: Record<number, number> = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 5 };
+  const score = (probMap[Number(probability)] || 0) * (impMap[Number(impact)] || 0);
   const riskLevel = getRiskLevelFromScore(score);
 
   useEffect(() => {
@@ -151,7 +149,7 @@ export default function RiskForm({
       treatment: values.treatment,
       status: values.status,
       responsibleId: values.responsibleId || null,
-      reviewDate: values.reviewDate ? format(values.reviewDate, "yyyy-MM-dd") : null,
+      reviewDate: values.reviewDate || null,
     } satisfies CreateRiskInput;
 
     await onSubmit(payload);
@@ -321,9 +319,10 @@ export default function RiskForm({
                             )}
                           >
                             <RadioGroupItem value={String(item.value)} />
-                            <item.icon className="h-4 w-4" />
-                            <span className="font-medium">{item.value}</span>
-                            <span className="text-sm text-muted-foreground">{item.label}</span>
+                            <span className={cn("inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold", item.tone)}>
+                              {item.value}
+                            </span>
+                            <span className="text-sm font-medium">{`${item.value} - ${item.label}`}</span>
                           </label>
                         ))}
                       </RadioGroup>
@@ -354,9 +353,10 @@ export default function RiskForm({
                             )}
                           >
                             <RadioGroupItem value={String(item.value)} />
-                            <item.icon className="h-4 w-4" />
-                            <span className="font-medium">{item.value}</span>
-                            <span className="text-sm text-muted-foreground">{item.label}</span>
+                            <span className={cn("inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold", item.tone)}>
+                              {item.value}
+                            </span>
+                            <span className="text-sm font-medium">{`${item.value} - ${item.label}`}</span>
                           </label>
                         ))}
                       </RadioGroup>
@@ -370,6 +370,7 @@ export default function RiskForm({
                 <p className="text-sm font-medium text-muted-foreground">Preview em tempo real</p>
                 <p className="mt-4 text-5xl font-bold">{score}</p>
                 <p className="mt-1 text-sm text-muted-foreground">Score de risco</p>
+                <p className="mt-4 text-sm font-medium">{`Score: ${score} -> `}<span className="inline-block align-middle"><Badge className={cn(getRiskLevelBadgeClass(riskLevel))}>{riskLevelLabels[riskLevel]}</Badge></span></p>
                 <Badge className={cn("mt-4", getRiskLevelBadgeClass(riskLevel))}>
                   {riskLevelLabels[riskLevel]}
                 </Badge>
@@ -459,22 +460,9 @@ export default function RiskForm({
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Prazo de revisao</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn("justify-between font-normal", !field.value && "text-muted-foreground")}
-                          >
-                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: ptBR }) : "Selecione a data"}
-                            <CalendarIcon className="h-4 w-4 opacity-70" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                      </PopoverContent>
-                    </Popover>
+                    <FormControl>
+                      <Input type="date" {...field} value={field.value ?? ""} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

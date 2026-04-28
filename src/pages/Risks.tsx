@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner";
 import RiskDetail from "@/components/risks/RiskDetail";
 import RiskForm from "@/components/risks/RiskForm";
-import RiskMatrix from "@/components/risks/RiskMatrix";
+import RiskMatrix from "@/components/RiskMatrix";
 import {
   getRiskCategoryBadgeClass,
   getRiskLevelBadgeClass,
@@ -194,7 +194,7 @@ export default function RisksPage() {
     }
     try {
       const response = await generateFromAssessment.mutateAsync(selectedAssessmentId);
-      toast.success(`${response.count} riscos identificados automaticamente`);
+      toast.success(`${response.count} riscos identificados e adicionados à matriz!`);
       setIsGenerateOpen(false);
       setSelectedAssessmentId(null);
     } catch (error) {
@@ -206,7 +206,7 @@ export default function RisksPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Gestao de Riscos</h1>
+          <h1 className="text-2xl font-bold">Gestão de Riscos</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Avalie, priorize e acompanhe os riscos identificados nas avaliacoes.
           </p>
@@ -259,7 +259,7 @@ export default function RisksPage() {
       <Card className="rounded-2xl">
         <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <CardTitle className="text-lg">Matriz de Risco</CardTitle>
+            <CardTitle className="text-lg">Matriz de Riscos (Probabilidade × Impacto)</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
               Clique em uma celula para filtrar a tabela por probabilidade e impacto.
             </p>
@@ -274,7 +274,17 @@ export default function RisksPage() {
           {matrixQuery.isLoading ? (
             <SkeletonBlock className="h-[420px] w-full" />
           ) : (
-            <RiskMatrix cells={matrixQuery.data ?? []} selectedCell={selectedCell} onSelectCell={setSelectedCell} />
+            <RiskMatrix
+              data={matrixQuery.data ?? []}
+              selectedCell={selectedCell}
+              onCellClick={(probability, impact) =>
+                setSelectedCell((current) =>
+                  current?.probability === probability && current?.impact === impact
+                    ? null
+                    : { probability, impact },
+                )
+              }
+            />
           )}
         </CardContent>
       </Card>
@@ -284,7 +294,7 @@ export default function RisksPage() {
           <div>
             <CardTitle className="text-lg">Riscos cadastrados</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              Visualize o nivel, status e responsavel de cada risco identificado.
+              Visualize o nível, status e responsável de cada risco identificado.
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -371,8 +381,8 @@ export default function RisksPage() {
                   <TableHead>Score</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Responsavel</TableHead>
-                  <TableHead>Prazo Revisao</TableHead>
-                  <TableHead className="text-right">Acoes</TableHead>
+                    <TableHead>Revisão</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

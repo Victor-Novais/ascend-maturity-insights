@@ -1,88 +1,86 @@
-import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { RiskLevel, type RiskMatrixCell } from "@/types/risk";
-import {
-  getRiskLevelBadgeClass,
-  getRiskMatrixColor,
-  getRiskMatrixLabel,
-} from "@/components/risks/risk-utils";
+import type { RiskMatrixCell } from "@/types/risk";
+import { getRiskLevelFromScore, riskLevelLabels } from "@/components/risks/risk-utils";
 
 const impactLabels = ["Muito Baixo", "Baixo", "Medio", "Alto", "Muito Alto"];
 const probabilityLabels = ["Muito Baixa", "Baixa", "Media", "Alta", "Muito Alta"];
 
 type Props = {
-  cells: RiskMatrixCell[];
-  selectedCell: { probability: number; impact: number } | null;
-  onSelectCell: (cell: { probability: number; impact: number } | null) => void;
+  data: RiskMatrixCell[];
+  onCellClick: (probability: number, impact: number) => void;
+  selectedCell?: { probability: number; impact: number } | null;
 };
 
-export default function RiskMatrix({ cells, selectedCell, onSelectCell }: Props) {
-  const getCell = (probability: number, impact: number) =>
-    cells.find((cell) => cell.probability === probability && cell.impact === impact) ?? {
-      probability,
-      impact,
-      score: probability * impact,
-      riskLevel: RiskLevel.BAIXO,
-      count: 0,
-    };
+function getCellColor(score: number) {
+  if (score <= 5) return "bg-green-200 hover:bg-green-300";
+  if (score <= 11) return "bg-yellow-200 hover:bg-yellow-300";
+  if (score <= 19) return "bg-orange-200 hover:bg-orange-300";
+  return "bg-red-200 hover:bg-red-300";
+}
+
+export default function RiskMatrix({ data, onCellClick, selectedCell }: Props) {
+  const cells = new Map(data.map((cell) => [`${cell.probability}-${cell.impact}`, cell]));
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge className={getRiskLevelBadgeClass(RiskLevel.BAIXO)}>Baixo 1-5</Badge>
-        <Badge className={getRiskLevelBadgeClass(RiskLevel.MEDIO)}>Medio 6-11</Badge>
-        <Badge className={getRiskLevelBadgeClass(RiskLevel.ALTO)}>Alto 12-19</Badge>
-        <Badge className={getRiskLevelBadgeClass(RiskLevel.CRITICO)}>Critico 20-25</Badge>
-      </div>
+    <div className="overflow-x-auto">
+      <div className="grid min-w-[760px] grid-cols-[140px_repeat(5,minmax(96px,1fr))] gap-2">
+        <div />
+        {impactLabels.map((label, index) => (
+          <div key={label} className="rounded-xl border bg-muted/20 px-3 py-2 text-center">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Impacto {index + 1}</p>
+            <p className="mt-1 text-sm font-medium">{label}</p>
+          </div>
+        ))}
 
-      <div className="overflow-x-auto">
-        <div className="grid min-w-[720px] grid-cols-[120px_repeat(5,minmax(92px,1fr))] gap-2">
-          <div />
-          {impactLabels.map((label, index) => (
-            <div key={label} className="rounded-xl border bg-muted/20 px-3 py-2 text-center">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Impacto {index + 1}</p>
-              <p className="mt-1 text-sm font-medium">{label}</p>
-            </div>
-          ))}
-
-          {Array.from({ length: 5 }, (_, reverseIndex) => 5 - reverseIndex).map((probability) => (
-            <>
-              <div
-                key={`label-${probability}`}
-                className="flex items-center rounded-xl border bg-muted/20 px-3 py-2"
-              >
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Probabilidade {probability}</p>
-                  <p className="text-sm font-medium">{probabilityLabels[probability - 1]}</p>
-                </div>
+        {Array.from({ length: 5 }, (_, rowIndex) => 5 - rowIndex).map((probability) => (
+          <div key={`row-${probability}`} className="contents">
+            <div className="flex items-center rounded-xl border bg-muted/20 px-3 py-2">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Probabilidade {probability}</p>
+                <p className="text-sm font-medium">{probabilityLabels[probability - 1]}</p>
               </div>
+            </div>
 
-              {Array.from({ length: 5 }, (_, impactIndex) => impactIndex + 1).map((impact) => {
-                const cell = getCell(probability, impact);
-                const active = selectedCell?.probability === probability && selectedCell?.impact === impact;
-                return (
-                  <button
-                    key={`${probability}-${impact}`}
-                    type="button"
-                    title={getRiskMatrixLabel(probability, impact)}
-                    onClick={() =>
-                      onSelectCell(active ? null : { probability: cell.probability, impact: cell.impact })
-                    }
-                    className={cn(
-                      "relative flex min-h-[96px] flex-col items-center justify-center rounded-2xl border-2 p-4 text-center shadow-sm transition-transform hover:-translate-y-0.5",
-                      active ? "border-foreground ring-2 ring-foreground/20" : "border-transparent",
-                    )}
-                    style={{ backgroundColor: getRiskMatrixColor(cell.score) }}
-                  >
-                    <span className="text-xs font-medium text-white/90">Score {cell.score}</span>
-                    <span className="mt-2 text-3xl font-bold text-white">{cell.count}</span>
-                    <span className="mt-1 text-xs text-white/90">{cell.riskLevel}</span>
-                  </button>
-                );
-              })}
-            </>
-          ))}
-        </div>
+            {Array.from({ length: 5 }, (_, colIndex) => colIndex + 1).map((impact) => {
+              const score = probability * impact;
+              const cell = cells.get(`${probability}-${impact}`) ?? {
+                probability,
+                impact,
+                score,
+                count: 0,
+                riskLevel: getRiskLevelFromScore(score),
+              };
+              const isSelected =
+                selectedCell?.probability === probability && selectedCell?.impact === impact;
+
+              return (
+                <Tooltip key={`${probability}-${impact}`}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => onCellClick(probability, impact)}
+                      className={cn(
+                        "relative flex min-h-[96px] items-center justify-center rounded-2xl border transition-colors",
+                        getCellColor(score),
+                        isSelected && "ring-2 ring-foreground/30 border-foreground",
+                      )}
+                    >
+                      {cell.count > 0 ? (
+                        <span className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-full bg-slate-900 px-3 text-sm font-semibold text-white">
+                          {cell.count}
+                        </span>
+                      ) : null}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {`Prob: ${probability} × Impacto: ${impact} = Score: ${score} (${riskLevelLabels[cell.riskLevel]})`}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );

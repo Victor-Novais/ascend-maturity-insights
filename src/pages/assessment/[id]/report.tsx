@@ -88,7 +88,7 @@ export default function AssessmentReportByIdPage() {
   const handleGenerateRiskMatrix = async () => {
     try {
       const response = await generateRisksFromAssessment.mutateAsync(assessmentId);
-      toast.success(`${response.count} riscos identificados automaticamente`);
+      toast.success(`${response.count} riscos identificados e adicionados à matriz!`);
       navigate("/risks");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao gerar matriz de riscos.");

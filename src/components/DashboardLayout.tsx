@@ -31,7 +31,7 @@ const adminNavItems = [
   { label: "Planos de Acao", icon: Target, path: "/action-plans" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
   { label: "Analytics", icon: BarChart2, path: "/analytics" },
-  { label: "Gestao de Riscos", icon: AlertTriangle, path: "/risks" },
+  { label: "Riscos", icon: AlertTriangle, path: "/risks" },
   { label: "Auditoria", icon: Shield, path: "/audit-logs" },
 ];
 
@@ -41,7 +41,6 @@ const clienteNavItems = [
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
   { label: "Analytics", icon: BarChart2, path: "/analytics" },
-  { label: "Gestao de Riscos", icon: AlertTriangle, path: "/risks" },
 ];
 
 const collaboratorNavItems = [
@@ -50,7 +49,7 @@ const collaboratorNavItems = [
   { label: "Planos de Acao", icon: Target, path: "/action-plans" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
   { label: "Analytics", icon: BarChart2, path: "/analytics" },
-  { label: "Gestao de Riscos", icon: AlertTriangle, path: "/risks" },
+  { label: "Riscos", icon: AlertTriangle, path: "/risks" },
 ];
 
 export default function DashboardLayout() {
@@ -58,9 +57,10 @@ export default function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, logout } = useAuth();
   const auditStatsQuery = useAuditStats(user?.role === "ADMIN");
+  const canAccessRisks = user?.role === "ADMIN" || user?.role === "COLLABORATOR" || user?.role === ("AVALIADOR" as typeof user.role);
   const criticalRisksQuery = useRisks(
     { riskLevel: RiskLevel.CRITICO },
-    user?.role === "ADMIN" || user?.role === "CLIENTE" || user?.role === "COLLABORATOR",
+    canAccessRisks,
   );
   const navigate = useNavigate();
   const location = useLocation();

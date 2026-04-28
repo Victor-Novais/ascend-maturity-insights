@@ -20,7 +20,7 @@ export function useRisk(id: number) {
 
 export function useRiskStats(companyId?: number, enabled = true) {
   return useQuery({
-    queryKey: ["risks", "stats", companyId],
+    queryKey: ["risk-stats", companyId],
     queryFn: () => risksService.getStats(companyId),
     enabled,
   });
@@ -28,7 +28,7 @@ export function useRiskStats(companyId?: number, enabled = true) {
 
 export function useRiskMatrix(companyId?: number, enabled = true) {
   return useQuery({
-    queryKey: ["risks", "matrix", companyId],
+    queryKey: ["risk-matrix", companyId],
     queryFn: () => risksService.getMatrix(companyId),
     enabled,
   });
@@ -39,7 +39,9 @@ export function useCreateRisk() {
   return useMutation({
     mutationFn: (payload: CreateRiskInput) => risksService.create(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["risks"] });
+      void queryClient.invalidateQueries({ queryKey: ["risks"] });
+      void queryClient.invalidateQueries({ queryKey: ["risk-stats"] });
+      void queryClient.invalidateQueries({ queryKey: ["risk-matrix"] });
     },
   });
 }
@@ -49,7 +51,9 @@ export function useGenerateRisksFromAssessment() {
   return useMutation({
     mutationFn: (assessmentId: number) => risksService.generateFromAssessment(assessmentId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["risks"] });
+      void queryClient.invalidateQueries({ queryKey: ["risks"] });
+      void queryClient.invalidateQueries({ queryKey: ["risk-stats"] });
+      void queryClient.invalidateQueries({ queryKey: ["risk-matrix"] });
     },
   });
 }
@@ -60,8 +64,10 @@ export function useUpdateRisk() {
     mutationFn: ({ id, payload }: { id: number; payload: UpdateRiskInput }) =>
       risksService.update(id, payload),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["risks"] });
-      queryClient.invalidateQueries({ queryKey: ["risks", variables.id] });
+      void queryClient.invalidateQueries({ queryKey: ["risks"] });
+      void queryClient.invalidateQueries({ queryKey: ["risks", variables.id] });
+      void queryClient.invalidateQueries({ queryKey: ["risk-stats"] });
+      void queryClient.invalidateQueries({ queryKey: ["risk-matrix"] });
     },
   });
 }
@@ -71,7 +77,9 @@ export function useDeleteRisk() {
   return useMutation({
     mutationFn: (id: number) => risksService.remove(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["risks"] });
+      void queryClient.invalidateQueries({ queryKey: ["risks"] });
+      void queryClient.invalidateQueries({ queryKey: ["risk-stats"] });
+      void queryClient.invalidateQueries({ queryKey: ["risk-matrix"] });
     },
   });
 }
