@@ -1,0 +1,915 @@
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { AlertTriangle, ArrowLeft, BarChart3, CheckCircle2, Plus, ShieldCheck, Sparkles, Target, TrendingUp } from "lucide-react";
+import { jsPDF } from "jspdf";
+import { toast } from "sonner";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { useExportPDTI, usePDTI, useUpdatePDTI } from "@/hooks/usePDTI";
+import { PDTIStatus, type PDTIDiagnostic, type PDTIAction, type PDTIIndicator, type PDTIObjective, type PDTI } from "@/types/pdti";
+
+const overviewFields = [
+  { key: "mission", label: "Missão" },
+  { key: "vision", label: "Visão" },
+  { key: "values", label: "Valores" },
+  { key: "strategicAlignment", label: "Alinhamento Estratégico" },
+  { key: "legalRequirements", label: "Requisitos Legais" },
+  { key: "currentScenario", label: "Cenário Atual" },
+  { key: "desiredScenario", label: "Cenário Desejado" },
+] as const;
+
+const statusStyles: Record<PDTIStatus, string> = {
+  [PDTIStatus.RASCUNHO]: "border-slate-200 bg-slate-100 text-slate-700",
+  [PDTIStatus.EM_REVISAO]: "border-amber-200 bg-amber-100 text-amber-800",
+  [PDTIStatus.APROVADO]: "border-blue-200 bg-blue-100 text-blue-800",
+  [PDTIStatus.VIGENTE]: "border-emerald-200 bg-emerald-100 text-emerald-800",
+  [PDTIStatus.ENCERRADO]: "border-red-200 bg-red-100 text-red-800",
+};
+
+const diagnosticMeta = [
+  { key: "strengths", label: "Pontos Fortes", icon: ShieldCheck, accent: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  { key: "improvements", label: "Pontos de Melhoria", icon: TrendingUp, accent: "bg-amber-50 text-amber-700 border-amber-200" },
+  { key: "opportunities", label: "Oportunidades", icon: Sparkles, accent: "bg-blue-50 text-blue-700 border-blue-200" },
+  { key: "threats", label: "Ameaças", icon: AlertTriangle, accent: "bg-red-50 text-red-700 border-red-200" },
+] as const;
+
+const actionStatusStyles: Record<string, string> = {
+  PENDENTE: "border-slate-200 bg-slate-100 text-slate-700",
+  EM_ANDAMENTO: "border-blue-200 bg-blue-100 text-blue-800",
+  CONCLUIDO: "border-emerald-200 bg-emerald-100 text-emerald-800",
+  CANCELADO: "border-red-200 bg-red-100 text-red-800",
+};
+
+function normalizeDiagnostic(value: PDTIDiagnostic | null | undefined): PDTIDiagnostic {
+  return {
+    strengths: Array.isArray(value?.strengths) ? value.strengths : [],
+    improvements: Array.isArray(value?.improvements) ? value.improvements : [],
+    opportunities: Array.isArray(value?.opportunities) ? value.opportunities : [],
+    threats: Array.isArray(value?.threats) ? value.threats : [],
+  };
+}
+
+function toNumber(value: number | string | undefined | null) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function buildExportText(data: PDTI) {
+  const lines = [
+    `PDTI: ${data.title}`,
+    `Empresa: ${data.company?.name ?? `#${data.companyId}`}`,
+    `Ano: ${data.year}`,
+    `Período: ${data.period}`,
+    `Status: ${data.status}`,
+    "",
+    "Visão Geral",
+    `Missão: ${data.mission || "—"}`,
+    `Visão: ${data.vision || "—"}`,
+    `Valores: ${data.values || "—"}`,
+    `Alinhamento Estratégico: ${data.strategicAlignment || "—"}`,
+    `Requisitos Legais: ${data.legalRequirements || "—"}`,
+    `Cenário Atual: ${data.currentScenario || "—"}`,
+    `Cenário Desejado: ${data.desiredScenario || "—"}`,
+  ];
+
+  const diagnostic = normalizeDiagnostic(data.diagnostic);
+  lines.push("", "Diagnóstico");
+  (Object.entries(diagnostic) as [keyof PDTIDiagnostic, string[]][]).forEach(([key, items]) => {
+    lines.push(`${key}:`);
+    items.forEach((item, index) => {
+      lines.push(`${index + 1}. ${item || "—"}`);
+    });
+  });
+
+  lines.push("", "Objetivos Estratégicos");
+  (data.objectives ?? []).forEach((objective, index) => {
+    lines.push(`${index + 1}. ${objective.title}`);
+    lines.push(`   Prioridade: ${objective.priority}`);
+    lines.push(`   Categoria: ${objective.category}`);
+    lines.push(`   Status: ${objective.status}`);
+    lines.push(`   Descrição: ${objective.description || "—"}`);
+    lines.push(`   Ações: ${(objective.actions ?? []).length || 0}`);
+  });
+
+  lines.push("", "Indicadores");
+  (data.indicators ?? []).forEach((indicator, index) => {
+    lines.push(`${index + 1}. ${indicator.name}`);
+    lines.push(`   Unidade: ${indicator.unit}`);
+    lines.push(`   Baseline: ${indicator.baseline}`);
+    lines.push(`   Meta: ${indicator.target}`);
+    lines.push(`   Atual: ${indicator.current}`);
+    lines.push(`   % Atingido: ${indicator.achievedPercent ?? 0}`);
+    lines.push(`   Frequência: ${indicator.frequency}`);
+  });
+
+  lines.push("", "Cronograma");
+  (data.actions ?? []).forEach((action, index) => {
+    lines.push(`${index + 1}. ${action.title}`);
+    lines.push(`   Status: ${action.status}`);
+    lines.push(`   Prioridade: ${action.priority || "—"}`);
+    lines.push(`   Início: ${action.startDate ? new Date(action.startDate).toLocaleDateString("pt-BR") : "—"}`);
+    lines.push(`   Prazo: ${action.dueDate ? new Date(action.dueDate).toLocaleDateString("pt-BR") : "—"}`);
+    lines.push(`   Responsável: ${action.assignee || "—"}`);
+  });
+
+  return lines.join("\n");
+}
+
+function buildWordHtml(data: PDTI) {
+  const sections = [
+    `<h1>${escapeHtml(data.title)}</h1>`,
+    `<p><strong>Empresa:</strong> ${escapeHtml(data.company?.name ?? `#${data.companyId}`)}</p>`,
+    `<p><strong>Ano:</strong> ${escapeHtml(data.year)} | <strong>Período:</strong> ${escapeHtml(data.period)} | <strong>Status:</strong> ${escapeHtml(data.status)}</p>`,
+    `<h2>Visão Geral</h2>`,
+    `<ul><li><strong>Missão:</strong> ${escapeHtml(data.mission || "—")}</li><li><strong>Visão:</strong> ${escapeHtml(data.vision || "—")}</li><li><strong>Valores:</strong> ${escapeHtml(data.values || "—")}</li><li><strong>Alinhamento Estratégico:</strong> ${escapeHtml(data.strategicAlignment || "—")}</li><li><strong>Requisitos Legais:</strong> ${escapeHtml(data.legalRequirements || "—")}</li><li><strong>Cenário Atual:</strong> ${escapeHtml(data.currentScenario || "—")}</li><li><strong>Cenário Desejado:</strong> ${escapeHtml(data.desiredScenario || "—")}</li></ul>`,
+  ];
+
+  const diagnostic = normalizeDiagnostic(data.diagnostic);
+  sections.push("<h2>Diagnóstico</h2>");
+  (Object.entries(diagnostic) as [keyof PDTIDiagnostic, string[]][]).forEach(([key, items]) => {
+    sections.push(`<h3>${escapeHtml(key)}</h3><ul>${items.map((item) => `<li>${escapeHtml(item || "—")}</li>`).join("")}</ul>`);
+  });
+
+  sections.push("<h2>Objetivos Estratégicos</h2>");
+  sections.push((data.objectives ?? []).map((objective, index) => `
+    <section>
+      <h3>${index + 1}. ${escapeHtml(objective.title)}</h3>
+      <p><strong>Prioridade:</strong> ${escapeHtml(objective.priority)} | <strong>Categoria:</strong> ${escapeHtml(objective.category)} | <strong>Status:</strong> ${escapeHtml(objective.status)}</p>
+      <p><strong>Descrição:</strong> ${escapeHtml(objective.description || "—")}</p>
+      <p><strong>Ações vinculadas:</strong> ${escapeHtml((objective.actions ?? []).length)}</p>
+    </section>
+  `).join(""));
+
+  sections.push("<h2>Indicadores</h2>");
+  sections.push((data.indicators ?? []).map((indicator, index) => `
+    <section>
+      <h3>${index + 1}. ${escapeHtml(indicator.name)}</h3>
+      <p><strong>Unidade:</strong> ${escapeHtml(indicator.unit)} | <strong>Frequência:</strong> ${escapeHtml(indicator.frequency)}</p>
+      <p><strong>Baseline:</strong> ${escapeHtml(indicator.baseline)} | <strong>Meta:</strong> ${escapeHtml(indicator.target)} | <strong>Atual:</strong> ${escapeHtml(indicator.current)}</p>
+      <p><strong>% Atingido:</strong> ${escapeHtml(indicator.achievedPercent ?? 0)}</p>
+    </section>
+  `).join(""));
+
+  sections.push("<h2>Cronograma</h2>");
+  sections.push((data.actions ?? []).map((action, index) => `
+    <section>
+      <h3>${index + 1}. ${escapeHtml(action.title)}</h3>
+      <p><strong>Status:</strong> ${escapeHtml(action.status)} | <strong>Prioridade:</strong> ${escapeHtml(action.priority || "—")}</p>
+      <p><strong>Início:</strong> ${escapeHtml(action.startDate ? new Date(action.startDate).toLocaleDateString("pt-BR") : "—")}</p>
+      <p><strong>Prazo:</strong> ${escapeHtml(action.dueDate ? new Date(action.dueDate).toLocaleDateString("pt-BR") : "—")}</p>
+      <p><strong>Responsável:</strong> ${escapeHtml(action.assignee || "—")}</p>
+    </section>
+  `).join(""));
+
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8" /><title>${escapeHtml(data.title)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#1f2937;} h1,h2,h3{color:#111827;} p,li{font-size:12pt;} section{margin-bottom:20px;border-bottom:1px solid #e5e7eb;padding-bottom:12px;} ul{padding-left:20px;}</style></head><body>${sections.join("")}</body></html>`;
+}
+
+export default function PDTIDetailPage() {
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const planId = Number(id);
+
+  const pdtiQuery = usePDTI(planId);
+  const exportQuery = useExportPDTI(planId);
+  const updatePDTI = useUpdatePDTI();
+
+  const [overviewDraft, setOverviewDraft] = useState<Record<string, string>>({});
+  const [diagnosticDraft, setDiagnosticDraft] = useState<PDTIDiagnostic>({
+    strengths: [],
+    improvements: [],
+    opportunities: [],
+    threats: [],
+  });
+  const [objectivesDraft, setObjectivesDraft] = useState<PDTIObjective[]>([]);
+  const [indicatorsDraft, setIndicatorsDraft] = useState<PDTIIndicator[]>([]);
+  const [newObjectiveDraft, setNewObjectiveDraft] = useState({
+    title: "",
+    description: "",
+    priority: "MEDIA",
+    category: "PROCESSOS",
+    status: "EM_REVISAO",
+  });
+  const [newIndicatorDraft, setNewIndicatorDraft] = useState({
+    name: "",
+    unit: "%",
+    baseline: "0",
+    target: "100",
+    current: "0",
+    frequency: "Mensal",
+  });
+
+  useEffect(() => {
+    const plan = pdtiQuery.data;
+    if (!plan) return;
+
+    setOverviewDraft({
+      mission: plan.mission ?? "",
+      vision: plan.vision ?? "",
+      values: plan.values ?? "",
+      strategicAlignment: plan.strategicAlignment ?? "",
+      legalRequirements: plan.legalRequirements ?? "",
+      currentScenario: plan.currentScenario ?? "",
+      desiredScenario: plan.desiredScenario ?? "",
+    });
+    setDiagnosticDraft(normalizeDiagnostic(plan.diagnostic));
+    setObjectivesDraft(plan.objectives ?? []);
+    setIndicatorsDraft(plan.indicators ?? []);
+  }, [pdtiQuery.data]);
+
+  const orderedActions = useMemo(() => {
+    const actions = (pdtiQuery.data?.actions ?? []).slice().sort((a, b) => {
+      const left = new Date(a.dueDate ?? a.startDate ?? 0).getTime();
+      const right = new Date(b.dueDate ?? b.startDate ?? 0).getTime();
+      return left - right;
+    });
+    return actions;
+  }, [pdtiQuery.data?.actions]);
+
+  const handleSaveSection = async (field: keyof typeof overviewDraft) => {
+    try {
+      await updatePDTI.mutateAsync({
+        id: planId,
+        payload: { [field]: overviewDraft[field] },
+      });
+      toast.success("Seção atualizada com sucesso.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao salvar seção.");
+    }
+  };
+
+  const handleSaveDiagnostic = async () => {
+    try {
+      await updatePDTI.mutateAsync({
+        id: planId,
+        payload: { diagnostic: diagnosticDraft },
+      });
+      toast.success("Diagnóstico atualizado com sucesso.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao salvar diagnóstico.");
+    }
+  };
+
+  const handleAddObjective = async () => {
+    if (!newObjectiveDraft.title.trim()) {
+      toast.error("Informe um título para o objetivo.");
+      return;
+    }
+
+    const objective: PDTIObjective = {
+      id: Date.now(),
+      pdtiId: planId,
+      title: newObjectiveDraft.title.trim(),
+      description: newObjectiveDraft.description.trim() || null,
+      priority: newObjectiveDraft.priority,
+      category: newObjectiveDraft.category,
+      status: newObjectiveDraft.status,
+      actions: [],
+    };
+
+    const next = [...objectivesDraft, objective];
+    setObjectivesDraft(next);
+    setNewObjectiveDraft({
+      title: "",
+      description: "",
+      priority: "MEDIA",
+      category: "PROCESSOS",
+      status: "EM_REVISAO",
+    });
+
+    try {
+      await updatePDTI.mutateAsync({
+        id: planId,
+        payload: { objectives: next },
+      });
+      toast.success("Objetivo adicionado com sucesso.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao adicionar objetivo.");
+    }
+  };
+
+  const handleSaveIndicators = async () => {
+    try {
+      await updatePDTI.mutateAsync({
+        id: planId,
+        payload: { indicators: indicatorsDraft },
+      });
+      toast.success("Indicadores atualizados com sucesso.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao salvar indicadores.");
+    }
+  };
+
+  const handleAddIndicator = async () => {
+    if (!newIndicatorDraft.name.trim()) {
+      toast.error("Informe um nome para o KPI.");
+      return;
+    }
+
+    const indicator: PDTIIndicator = {
+      id: Date.now(),
+      pdtiId: planId,
+      name: newIndicatorDraft.name.trim(),
+      unit: newIndicatorDraft.unit.trim() || "%",
+      baseline: Number(newIndicatorDraft.baseline) || 0,
+      target: Number(newIndicatorDraft.target) || 0,
+      current: Number(newIndicatorDraft.current) || 0,
+      achievedPercent: (() => {
+        const target = Number(newIndicatorDraft.target) || 0;
+        if (!target) return 0;
+        return Math.min(100, Math.max(0, (Number(newIndicatorDraft.current) / target) * 100));
+      })(),
+      frequency: newIndicatorDraft.frequency.trim() || "Mensal",
+    };
+
+    const next = [...indicatorsDraft, indicator];
+    setIndicatorsDraft(next);
+    setNewIndicatorDraft({
+      name: "",
+      unit: "%",
+      baseline: "0",
+      target: "100",
+      current: "0",
+      frequency: "Mensal",
+    });
+
+    try {
+      await updatePDTI.mutateAsync({
+        id: planId,
+        payload: { indicators: next },
+      });
+      toast.success("KPI adicionado com sucesso.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao adicionar KPI.");
+    }
+  };
+
+  if (pdtiQuery.isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  const plan = pdtiQuery.data;
+
+  if (!plan) {
+    return <div className="rounded-xl border p-6 text-sm text-muted-foreground">PDTI não encontrado.</div>;
+  }
+
+  const exportedData = exportQuery.data ?? plan;
+
+  const handleExportPdf = () => {
+    try {
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      let y = 40;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+
+      const addParagraph = (text: string, fontSize = 10, bold = false) => {
+        doc.setFont("helvetica", bold ? "bold" : "normal");
+        doc.setFontSize(fontSize);
+        const lines = doc.splitTextToSize(text || "—", pageWidth - 80);
+        doc.text(lines, 40, y);
+        y += lines.length * (fontSize + 2);
+        if (y > pageHeight - 40) {
+          doc.addPage();
+          y = 40;
+        }
+      };
+
+      addParagraph(plan.title, 18, true);
+      addParagraph(`${plan.company?.name ?? `Empresa #${plan.companyId}`} · ${plan.year} · ${plan.period}`, 10);
+      y += 10;
+
+      addParagraph("Visão Geral", 14, true);
+      addParagraph(`Missão: ${plan.mission || "—"}`);
+      addParagraph(`Visão: ${plan.vision || "—"}`);
+      addParagraph(`Valores: ${plan.values || "—"}`);
+      addParagraph(`Alinhamento Estratégico: ${plan.strategicAlignment || "—"}`);
+      addParagraph(`Requisitos Legais: ${plan.legalRequirements || "—"}`);
+      addParagraph(`Cenário Atual: ${plan.currentScenario || "—"}`);
+      addParagraph(`Cenário Desejado: ${plan.desiredScenario || "—"}`);
+
+      addParagraph("Diagnóstico", 14, true);
+      (Object.entries(normalizeDiagnostic(plan.diagnostic)) as [keyof PDTIDiagnostic, string[]][]).forEach(([key, items]) => {
+        addParagraph(`${key}:`, 11, true);
+        items.forEach((item) => addParagraph(`• ${item || "—"}`));
+      });
+
+      addParagraph("Objetivos Estratégicos", 14, true);
+      (plan.objectives ?? []).forEach((objective, index) => {
+        addParagraph(`${index + 1}. ${objective.title}`, 11, true);
+        addParagraph(`Prioridade: ${objective.priority} · Categoria: ${objective.category} · Status: ${objective.status}`);
+        addParagraph(`Descrição: ${objective.description || "—"}`);
+      });
+
+      addParagraph("Indicadores", 14, true);
+      (plan.indicators ?? []).forEach((indicator, index) => {
+        addParagraph(`${index + 1}. ${indicator.name}`, 11, true);
+        addParagraph(`Unidade: ${indicator.unit} · Baseline: ${indicator.baseline} · Meta: ${indicator.target} · Atual: ${indicator.current}`);
+        addParagraph(`Frequência: ${indicator.frequency} · % atingido: ${indicator.achievedPercent ?? 0}`);
+      });
+
+      addParagraph("Cronograma", 14, true);
+      (plan.actions ?? []).forEach((action, index) => {
+        addParagraph(`${index + 1}. ${action.title}`, 11, true);
+        addParagraph(`Status: ${action.status} · Prioridade: ${action.priority || "—"}`);
+        addParagraph(`Início: ${action.startDate ? new Date(action.startDate).toLocaleDateString("pt-BR") : "—"}`);
+        addParagraph(`Prazo: ${action.dueDate ? new Date(action.dueDate).toLocaleDateString("pt-BR") : "—"}`);
+        addParagraph(`Responsável: ${action.assignee || "—"}`);
+      });
+
+      const filename = `pdti-${plan.id}.pdf`;
+      doc.save(filename);
+      toast.success(`PDF salvo em ${filename}.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao exportar PDF.");
+    }
+  };
+
+  const handleExportWord = () => {
+    try {
+      const filename = `pdti-${plan.id}.html`;
+      const blob = new Blob([buildWordHtml(exportedData)], { type: "text/html;charset=utf-8" });
+      downloadBlob(filename, blob);
+      toast.success(`Documento Word compatível salvo em ${filename}.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao exportar documento Word.");
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <Button type="button" variant="outline" onClick={() => navigate("/pdti")}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar para PDTIs
+          </Button>
+          <div className="mt-3">
+            <h1 className="text-2xl font-bold">{plan.title}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {plan.company?.name ?? `Empresa #${plan.companyId}`} · {plan.year} · {plan.period}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Badge className={statusStyles[plan.status]}>{plan.status}</Badge>
+          <Button type="button" variant="outline" onClick={() => handleExportPdf()}>
+            Exportar PDF
+          </Button>
+          <Button type="button" variant="outline" onClick={() => handleExportWord()}>
+            Exportar Word
+          </Button>
+        </div>
+      </div>
+
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+          <TabsTrigger value="diagnostico">Diagnóstico</TabsTrigger>
+          <TabsTrigger value="objetivos">Objetivos Estratégicos</TabsTrigger>
+          <TabsTrigger value="cronograma">Cronograma</TabsTrigger>
+          <TabsTrigger value="indicadores">Indicadores</TabsTrigger>
+          <TabsTrigger value="exportar">Exportar</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            {overviewFields.map((field) => (
+              <Card key={field.key} className="rounded-2xl">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">{field.label}</CardTitle>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void handleSaveSection(field.key)}
+                    >
+                      Salvar
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    className="min-h-28"
+                    value={overviewDraft[field.key] ?? ""}
+                    onChange={(event) =>
+                      setOverviewDraft((current) => ({ ...current, [field.key]: event.target.value }))
+                    }
+                  />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="diagnostico" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Diagnóstico do Assessment</h2>
+              <p className="text-sm text-muted-foreground">Edite os pontos fortes, melhorias, oportunidades e ameaças.</p>
+            </div>
+            <Button type="button" variant="outline" onClick={() => void handleSaveDiagnostic()}>
+              Salvar Diagnóstico
+            </Button>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {diagnosticMeta.map((entry) => {
+              const Icon = entry.icon;
+              const items = diagnosticDraft[entry.key] ?? [];
+
+              return (
+                <Card key={entry.key} className="rounded-2xl">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`rounded-lg border p-2 ${entry.accent}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <CardTitle className="text-base">{entry.label}</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {items.map((item, index) => (
+                      <div key={`${entry.key}-${index}`} className="rounded-xl border bg-muted/40 p-3 text-sm">
+                        <textarea
+                          className="min-h-20 w-full rounded-md border border-border bg-background p-2 text-sm"
+                          value={item}
+                          onChange={(event) => {
+                            const next = [...items];
+                            next[index] = event.target.value;
+                            setDiagnosticDraft((current) => ({ ...current, [entry.key]: next }));
+                          }}
+                        />
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setDiagnosticDraft((current) => ({
+                          ...current,
+                          [entry.key]: [...items, ""],
+                        }));
+                      }}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Adicionar item
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="objetivos" className="space-y-4">
+          <div className="rounded-2xl border bg-card p-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-medium">Título do objetivo</label>
+                <Input
+                  value={newObjectiveDraft.title}
+                  onChange={(event) => setNewObjectiveDraft((current) => ({ ...current, title: event.target.value }))}
+                  placeholder="Ex: Modernizar infraestrutura de rede"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Categoria</label>
+                <Input
+                  value={newObjectiveDraft.category}
+                  onChange={(event) => setNewObjectiveDraft((current) => ({ ...current, category: event.target.value }))}
+                  placeholder="INFRAESTRUTURA"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Prioridade</label>
+                <Select
+                  value={newObjectiveDraft.priority}
+                  onValueChange={(value) => setNewObjectiveDraft((current) => ({ ...current, priority: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Prioridade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {['ALTA','MEDIA','BAIXA'].map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Status</label>
+                <Select
+                  value={newObjectiveDraft.status}
+                  onValueChange={(value) => setNewObjectiveDraft((current) => ({ ...current, status: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.values(PDTIStatus).map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <label className="mb-2 block text-sm font-medium">Descrição</label>
+              <Textarea
+                className="min-h-24"
+                value={newObjectiveDraft.description}
+                onChange={(event) => setNewObjectiveDraft((current) => ({ ...current, description: event.target.value }))}
+                placeholder="Descreva o objetivo estratégico"
+              />
+            </div>
+
+            <div className="mt-3 flex justify-end">
+              <Button type="button" onClick={() => void handleAddObjective()}>
+                Adicionar objetivo
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {objectivesDraft.map((objective) => (
+              <Card key={objective.id} className="rounded-2xl">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-base">{objective.title}</CardTitle>
+                      <p className="mt-1 text-xs text-muted-foreground">{objective.category} · {objective.priority}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge className={statusStyles[objective.status as PDTIStatus] ?? "border-slate-200 bg-slate-100 text-slate-700"}>{objective.status}</Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">{objective.description || "Sem descrição detalhada."}</p>
+                  <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value={`actions-${objective.id}`}>
+                      <AccordionTrigger className="text-sm font-medium">Ações vinculadas ({objective.actions?.length ?? 0})</AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-2">
+                          {(objective.actions ?? []).length ? (
+                            objective.actions?.map((action: PDTIAction) => (
+                              <div key={action.id} className="rounded-xl border bg-muted/40 p-3 text-sm">
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="font-medium">{action.title}</p>
+                                  <Badge className={actionStatusStyles[action.status] ?? "border-slate-200 bg-slate-100 text-slate-700"}>{action.status}</Badge>
+                                </div>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {action.dueDate ? `Prazo: ${new Date(action.dueDate).toLocaleDateString("pt-BR")}` : "Sem prazo definido"}
+                                </p>
+                                {action.actionPlanId ? (
+                                  <p className="mt-2 text-xs text-primary">Vinculado ao ActionPlan #{action.actionPlanId}</p>
+                                ) : null}
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-muted-foreground">Nenhuma ação vinculada ainda.</p>
+                          )}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="cronograma" className="space-y-4">
+          <Card className="rounded-2xl">
+            <CardHeader>
+              <CardTitle className="text-base">Cronograma de ações</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Ação</TableHead>
+                    <TableHead>Início</TableHead>
+                    <TableHead>Prazo</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Prioridade</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orderedActions.length ? (
+                    orderedActions.map((action) => (
+                      <TableRow key={action.id}>
+                        <TableCell className="font-medium">{action.title}</TableCell>
+                        <TableCell>{action.startDate ? new Date(action.startDate).toLocaleDateString("pt-BR") : "—"}</TableCell>
+                        <TableCell>{action.dueDate ? new Date(action.dueDate).toLocaleDateString("pt-BR") : "—"}</TableCell>
+                        <TableCell>
+                          <Badge className={actionStatusStyles[action.status] ?? "border-slate-200 bg-slate-100 text-slate-700"}>{action.status}</Badge>
+                        </TableCell>
+                        <TableCell>{action.priority ?? "—"}</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
+                        Nenhuma ação cadastrada no cronograma.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="indicadores" className="space-y-4">
+          <div className="rounded-2xl border bg-card p-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-medium">Nome do KPI</label>
+                <Input
+                  value={newIndicatorDraft.name}
+                  onChange={(event) => setNewIndicatorDraft((current) => ({ ...current, name: event.target.value }))}
+                  placeholder="Ex: Disponibilidade da infraestrutura"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Unidade</label>
+                <Input
+                  value={newIndicatorDraft.unit}
+                  onChange={(event) => setNewIndicatorDraft((current) => ({ ...current, unit: event.target.value }))}
+                  placeholder="%"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Baseline</label>
+                <Input
+                  type="number"
+                  value={newIndicatorDraft.baseline}
+                  onChange={(event) => setNewIndicatorDraft((current) => ({ ...current, baseline: event.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Meta</label>
+                <Input
+                  type="number"
+                  value={newIndicatorDraft.target}
+                  onChange={(event) => setNewIndicatorDraft((current) => ({ ...current, target: event.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Atual</label>
+                <Input
+                  type="number"
+                  value={newIndicatorDraft.current}
+                  onChange={(event) => setNewIndicatorDraft((current) => ({ ...current, current: event.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium">Frequência</label>
+                <Input
+                  value={newIndicatorDraft.frequency}
+                  onChange={(event) => setNewIndicatorDraft((current) => ({ ...current, frequency: event.target.value }))}
+                  placeholder="Mensal"
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => void handleSaveIndicators()}>
+                Salvar indicadores
+              </Button>
+              <Button type="button" onClick={() => void handleAddIndicator()}>
+                Adicionar KPI
+              </Button>
+            </div>
+          </div>
+
+          <Card className="rounded-2xl">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Unidade</TableHead>
+                    <TableHead>Baseline</TableHead>
+                    <TableHead>Meta</TableHead>
+                    <TableHead>Atual</TableHead>
+                    <TableHead>% Atingido</TableHead>
+                    <TableHead>Frequência</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {indicatorsDraft.length ? (
+                    indicatorsDraft.map((indicator) => {
+                      const baseline = toNumber(indicator.baseline);
+                      const target = toNumber(indicator.target);
+                      const current = toNumber(indicator.current);
+                      const achieved = target > 0 ? Math.min(100, Math.max(0, (current / target) * 100)) : 0;
+
+                      return (
+                        <TableRow key={indicator.id}>
+                          <TableCell className="font-medium">{indicator.name}</TableCell>
+                          <TableCell>{indicator.unit}</TableCell>
+                          <TableCell>{baseline}</TableCell>
+                          <TableCell>{target}</TableCell>
+                          <TableCell>{current}</TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="h-2 rounded-full bg-muted">
+                                <div className="h-2 rounded-full bg-primary" style={{ width: `${achieved}%` }} />
+                              </div>
+                              <p className="text-xs text-muted-foreground">{achieved.toFixed(0)}%</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>{indicator.frequency}</TableCell>
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">
+                        Nenhum KPI cadastrado ainda.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="exportar" className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+            <Card className="rounded-2xl">
+              <CardHeader>
+                <CardTitle className="text-base">Pré-visualização de exportação</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {exportQuery.isLoading ? (
+                  <Skeleton className="h-64 w-full" />
+                ) : exportedData ? (
+                  <pre className="max-h-[520px] overflow-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-100">
+                    {JSON.stringify(exportedData, null, 2)}
+                  </pre>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nenhum dado de exportação carregado.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl">
+              <CardHeader>
+                <CardTitle className="text-base">Ações de exportação</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button type="button" variant="outline" className="w-full justify-start" onClick={() => handleExportPdf()}>
+                  Exportar PDF
+                </Button>
+                <Button type="button" variant="outline" className="w-full justify-start" onClick={() => handleExportWord()}>
+                  Exportar Word
+                </Button>
+                <div className="rounded-xl bg-muted p-3 text-sm text-muted-foreground">
+                  Os dados exportados refletem a estrutura completa do PDTI, incluindo objetivos, ações, indicadores e cenário estratégico.
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

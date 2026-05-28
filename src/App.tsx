@@ -18,6 +18,8 @@ import ReportsPage from "@/pages/Reports";
 import ReportPage from "@/pages/Report";
 import NotFound from "@/pages/NotFound";
 import ActionPlansPage from "@/pages/ActionPlans";
+import PDTIPage from "@/pages/PDTI";
+import PDTIDetailPage from "@/pages/PDTIDetail";
 import AuditLogsPage from "@/pages/AuditLogs";
 import RisksPage from "@/pages/Risks";
 import AnalyticsPage from "@/pages/Analytics";
@@ -62,6 +64,8 @@ const App = () => (
                 <Route path="/dashboard/reports/:id" element={<ReportPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/action-plans" element={<ActionPlansPage />} />
+                <Route path="/pdti" element={<PDTIPage />} />
+                <Route path="/pdti/:id" element={<PDTIDetailPage />} />
                 <Route path="/risks" element={<RisksPage />} />
                 <Route path="/audit-logs" element={<AuditLogsPage />} />
                 <Route path="/assessment/create" element={<AssessmentCreatePage />} />
