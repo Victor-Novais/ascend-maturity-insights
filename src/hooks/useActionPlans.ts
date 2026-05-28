@@ -28,6 +28,12 @@ export function useActionPlanStats(companyId?: number) {
   });
 }
 
+export function useExport5W2H() {
+  return useMutation({
+    mutationFn: (filters?: ActionPlanFilters) => actionPlansService.export5W2H(filters),
+  });
+}
+
 export function useCreateActionPlan() {
   const queryClient = useQueryClient();
   return useMutation({

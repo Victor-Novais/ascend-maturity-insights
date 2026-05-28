@@ -3,6 +3,7 @@ import {
   ActionPlanPriority,
   ActionPlanStatus,
   type ActionPlan,
+  type ActionPlan5W2HDto,
   type ActionPlanFilters,
   type ActionPlanStats,
   type CreateActionPlanInput,
@@ -104,6 +105,9 @@ export const actionPlansService = {
     return api
       .get<ActionPlanStatsResponse>("/action-plans/stats", companyId ? { companyId } : undefined)
       .then(normalizeStats);
+  },
+  export5W2H(filters?: ActionPlanFilters) {
+    return api.get<ActionPlan5W2HDto[]>("/action-plans/export/5w2h", filters);
   },
   create(payload: CreateActionPlanInput) {
     return api.post<ActionPlan>("/action-plans", payload);

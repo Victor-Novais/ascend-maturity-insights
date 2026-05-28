@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
+  FileSpreadsheet,
   ListChecks,
   Pencil,
   PlayCircle,
@@ -15,6 +16,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { utils, writeFile } from "xlsx";
+import ActionPlan5W2HCard from "@/components/action-plans/ActionPlan5W2HCard";
 import ActionPlanForm from "@/components/action-plans/ActionPlanForm";
 import {
   actionPlanCategoryLabels,
@@ -37,7 +40,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActionPlans, useActionPlanStats, useCreateActionPlan, useDeleteActionPlan, useGenerateFromAssessment, useUpdateActionPlan } from "@/hooks/useActionPlans";
+import { useActionPlans, useActionPlanStats, useCreateActionPlan, useDeleteActionPlan, useExport5W2H, useGenerateFromAssessment, useUpdateActionPlan } from "@/hooks/useActionPlans";
 import { useAssessments } from "@/hooks/useAssessments";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useUsers } from "@/hooks/useUser";
@@ -106,13 +109,14 @@ export default function ActionPlansPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"table" | "5w2h">("table");
 
   const companiesQuery = useCompanies();
   const usersQuery = useUsers();
   const assessmentsQuery = useAssessments();
 
   const firstCompanyId = companiesQuery.data?.[0]?.id;
-  const filters = useMemo<Partial<ActionPlanFilters>>(
+  const filters = useMemo<ActionPlanFilters>(
     () => ({
       companyId: user?.role === "CLIENTE" ? firstCompanyId : undefined,
       status: statusFilter === "ALL" ? undefined : statusFilter,
@@ -126,6 +130,7 @@ export default function ActionPlansPage() {
   const createActionPlan = useCreateActionPlan();
   const updateActionPlan = useUpdateActionPlan();
   const deleteActionPlan = useDeleteActionPlan();
+  const export5W2H = useExport5W2H();
   const generateFromAssessment = useGenerateFromAssessment();
 
   if (!isEvaluatorRole(user?.role)) {
@@ -221,6 +226,34 @@ export default function ActionPlansPage() {
     }
   };
 
+  const handleExport5W2H = async () => {
+    try {
+      const exportedPlans = await export5W2H.mutateAsync(filters);
+
+      const rows = exportedPlans.map((plan) => ({
+        "O QUÊ": plan.whatObjective ?? "",
+        "POR QUÊ": plan.whyJustification ?? "",
+        "QUEM": plan.responsible?.name ?? "Não atribuído",
+        "ONDE": plan.whereLocation ?? "",
+        "QUANDO": plan.dueDate ? format(parseISO(plan.dueDate), "dd/MM/yyyy", { locale: ptBR }) : "",
+        "COMO": plan.howMethod ?? "",
+        "QUANTO CUSTA": plan.howMuchCost !== undefined ? `${plan.howMuchCost} ${plan.howMuchCurrency ?? ""}`.trim() : "",
+        "STATUS": actionPlanStatusLabels[plan.status],
+        "PRIORIDADE": actionPlanPriorityLabels[plan.priority],
+        "EMPRESA": plan.company?.name ?? "",
+      }));
+
+      const workbook = utils.book_new();
+      const worksheet = utils.json_to_sheet(rows);
+      utils.book_append_sheet(workbook, worksheet, "5W2H");
+      writeFile(workbook, `Plano_Acao_5W2H_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+
+      toast.success(`Exportado com sucesso! ${exportedPlans.length} planos no arquivo.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao exportar 5W2H.");
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -234,6 +267,10 @@ export default function ActionPlansPage() {
           <Button type="button" variant="outline" onClick={() => setGenerateDialogOpen(true)}>
             <Sparkles className="mr-2 h-4 w-4" />
             Gerar do Assessment
+          </Button>
+          <Button type="button" variant="outline" onClick={() => void handleExport5W2H()} disabled={export5W2H.isPending}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Exportar 5W2H
           </Button>
           <Button
             type="button"
@@ -302,8 +339,28 @@ export default function ActionPlansPage() {
       </Card>
 
       <Card className="rounded-2xl">
-        <CardHeader>
+        <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <CardTitle className="text-base">Planos cadastrados</CardTitle>
+          <div className="inline-flex rounded-full border bg-muted/40 p-1">
+            <Button
+              type="button"
+              size="sm"
+              variant={viewMode === "table" ? "default" : "ghost"}
+              className="rounded-full"
+              onClick={() => setViewMode("table")}
+            >
+              Visão Tabela
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={viewMode === "5w2h" ? "default" : "ghost"}
+              className="rounded-full"
+              onClick={() => setViewMode("5w2h")}
+            >
+              Visão 5W2H
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {plansQuery.isLoading ? (
@@ -312,6 +369,26 @@ export default function ActionPlansPage() {
                 <Skeleton key={index} className="h-12 w-full" />
               ))}
             </div>
+          ) : viewMode === "5w2h" ? (
+            plans.length ? (
+              <div className="grid gap-4 xl:grid-cols-2">
+                {plans.map((plan) => (
+                  <ActionPlan5W2HCard
+                    key={plan.id}
+                    plan={plan}
+                    onEdit={(editablePlan) => {
+                      setEditingPlan(editablePlan);
+                      setFormOpen(true);
+                    }}
+                    onDelete={(planId) => void handleDelete(planId)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed p-10 text-center text-sm text-muted-foreground">
+                Nenhum plano encontrado para os filtros atuais.
+              </div>
+            )
           ) : (
             <Table>
               <TableHeader>

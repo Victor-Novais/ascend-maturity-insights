@@ -43,11 +43,19 @@ export interface ActionPlan {
   dueDate?: string;
   completedAt?: string;
   observations?: string;
+  whatObjective?: string;
+  whyJustification?: string;
+  whereLocation?: string;
+  howMethod?: string;
+  howMuchCost?: number;
+  howMuchCurrency?: string;
   createdAt: string;
   updatedAt: string;
   company?: { id: number; name: string; segment?: string };
   assessment?: { id: number; status?: string; createdAt?: string; updatedAt?: string };
 }
+
+export interface ActionPlan5W2HDto extends ActionPlan {}
 
 export interface ActionPlanStats {
   total: number;
@@ -75,6 +83,12 @@ export interface CreateActionPlanInput {
   responsibleId?: string;
   dueDate?: string;
   observations?: string;
+  whatObjective?: string;
+  whyJustification?: string;
+  whereLocation?: string;
+  howMethod?: string;
+  howMuchCost?: number;
+  howMuchCurrency?: string;
 }
 
 export interface UpdateActionPlanInput {
@@ -90,6 +104,12 @@ export interface UpdateActionPlanInput {
   dueDate?: string;
   completedAt?: string;
   observations?: string;
+  whatObjective?: string;
+  whyJustification?: string;
+  whereLocation?: string;
+  howMethod?: string;
+  howMuchCost?: number;
+  howMuchCurrency?: string;
 }
 
 export interface GenerateActionPlansResponse {
