@@ -41,18 +41,17 @@ const clienteNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Empresas", icon: Building2, path: "/dashboard/companies" },
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
+  { label: "Planos de Acao", icon: Target, path: "/action-plans" },
+  { label: "PDTI", icon: FileText, path: "/pdti" },
   { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
   { label: "Analytics", icon: BarChart2, path: "/analytics" },
+  { label: "Riscos", icon: AlertTriangle, path: "/risks" },
 ];
 
 const collaboratorNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Avaliacoes", icon: ClipboardCheck, path: "/dashboard/assessments" },
   { label: "Planos de Acao", icon: Target, path: "/action-plans" },
-  { label: "PDTI", icon: FileText, path: "/pdti" },
-  { label: "Relatorios", icon: FileBarChart, path: "/dashboard/reports" },
-  { label: "Analytics", icon: BarChart2, path: "/analytics" },
-  { label: "Riscos", icon: AlertTriangle, path: "/risks" },
 ];
 
 export default function DashboardLayout() {
@@ -81,7 +80,7 @@ export default function DashboardLayout() {
   const navItems =
     user?.role === "ADMIN"
       ? adminNavItems
-      : user?.role === "COLLABORATOR" || user?.role === ("AVALIADOR" as typeof user.role)
+      : user?.role === "COLLABORATOR" || user?.role === "AVALIADOR"
         ? collaboratorNavItems
         : clienteNavItems;
   const auditFailureCount = auditStatsQuery.data?.failedActions ?? 0;
