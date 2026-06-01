@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Form,
   FormControl,
@@ -44,6 +45,8 @@ import {
   riskTreatmentOptions,
 } from "@/components/risks/risk-utils";
 
+const optionalString = z.string().trim().optional().transform((value) => (value === "" ? undefined : value));
+
 const riskSchema = z.object({
   title: z.string().min(5, "Informe um titulo com pelo menos 5 caracteres"),
   description: z.string().min(10, "Descreva o risco com pelo menos 10 caracteres"),
@@ -57,6 +60,18 @@ const riskSchema = z.object({
   reviewDate: z.string().optional(),
   companyId: z.number().int().positive("Selecione uma empresa"),
   assessmentId: z.number().int().positive().optional().nullable(),
+  assetCategory: optionalString,
+  assetName: optionalString,
+  threat: optionalString,
+  vulnerability: optionalString,
+  inherentProbability: z.number().int().min(1).max(5).optional(),
+  inherentImpact: z.number().int().min(1).max(5).optional(),
+  inherentScore: z.number().optional(),
+  existingControls: optionalString,
+  proposedControls: optionalString,
+  residualProbability: z.number().int().min(1).max(5).optional(),
+  residualImpact: z.number().int().min(1).max(5).optional(),
+  residualScore: z.number().optional(),
 });
 
 type RiskFormValues = z.infer<typeof riskSchema>;
@@ -99,6 +114,18 @@ function getDefaultValues(risk: Risk | null | undefined, fixedCompanyId?: number
     reviewDate: risk?.reviewDate ?? "",
     companyId: risk?.companyId ?? fixedCompanyId ?? 0,
     assessmentId: risk?.assessmentId ?? null,
+    assetCategory: risk?.assetCategory ?? undefined,
+    assetName: risk?.assetName ?? undefined,
+    threat: risk?.threat ?? undefined,
+    vulnerability: risk?.vulnerability ?? undefined,
+    inherentProbability: risk?.inherentProbability ?? undefined,
+    inherentImpact: risk?.inherentImpact ?? undefined,
+    inherentScore: risk?.inherentScore ?? undefined,
+    existingControls: risk?.existingControls ?? undefined,
+    proposedControls: risk?.proposedControls ?? undefined,
+    residualProbability: risk?.residualProbability ?? undefined,
+    residualImpact: risk?.residualImpact ?? undefined,
+    residualScore: risk?.residualScore ?? undefined,
   };
 }
 
@@ -121,10 +148,21 @@ export default function RiskForm({
   const companyId = form.watch("companyId");
   const probability = useWatch({ control: form.control, name: "probability" }) ?? 1;
   const impact = useWatch({ control: form.control, name: "impact" }) ?? 1;
+  const inherentProbability = useWatch({ control: form.control, name: "inherentProbability" }) ?? 0;
+  const inherentImpact = useWatch({ control: form.control, name: "inherentImpact" }) ?? 0;
+  const residualProbability = useWatch({ control: form.control, name: "residualProbability" }) ?? 0;
+  const residualImpact = useWatch({ control: form.control, name: "residualImpact" }) ?? 0;
   const probMap: Record<number, number> = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 5 };
   const impMap: Record<number, number> = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 5 };
   const score = (probMap[Number(probability)] || 0) * (impMap[Number(impact)] || 0);
   const riskLevel = getRiskLevelFromScore(score);
+  const inherentScore = inherentProbability && inherentImpact ? inherentProbability * inherentImpact : undefined;
+  const residualScore = residualProbability && residualImpact ? residualProbability * residualImpact : undefined;
+
+  useEffect(() => {
+    form.setValue("inherentScore", inherentScore);
+    form.setValue("residualScore", residualScore);
+  }, [form, inherentScore, residualScore]);
 
   useEffect(() => {
     form.reset(getDefaultValues(risk, fixedCompanyId));
@@ -150,6 +188,18 @@ export default function RiskForm({
       status: values.status,
       responsibleId: values.responsibleId || null,
       reviewDate: values.reviewDate || null,
+      assetCategory: values.assetCategory?.trim() || undefined,
+      assetName: values.assetName?.trim() || undefined,
+      threat: values.threat?.trim() || undefined,
+      vulnerability: values.vulnerability?.trim() || undefined,
+      inherentProbability: values.inherentProbability,
+      inherentImpact: values.inherentImpact,
+      inherentScore,
+      existingControls: values.existingControls?.trim() || undefined,
+      proposedControls: values.proposedControls?.trim() || undefined,
+      residualProbability: values.residualProbability,
+      residualImpact: values.residualImpact,
+      residualScore,
     } satisfies CreateRiskInput;
 
     await onSubmit(payload);
@@ -168,11 +218,18 @@ export default function RiskForm({
 
         <Form {...form}>
           <form className="space-y-6" onSubmit={form.handleSubmit(handleSubmit)}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
+            <Tabs defaultValue="identificacao" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-2 rounded-xl bg-muted p-1 text-sm">
+                <TabsTrigger value="identificacao">Identificação</TabsTrigger>
+                <TabsTrigger value="analise">Análise TIC</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="identificacao" className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
                   <FormItem className="md:col-span-2">
                     <FormLabel>Titulo</FormLabel>
                     <FormControl>
@@ -468,6 +525,270 @@ export default function RiskForm({
                 )}
               />
             </div>
+
+              </TabsContent>
+
+              <TabsContent value="analise" className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="assetCategory"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Categoria do Ativo</FormLabel>
+                        <Select
+                          value={field.value ?? "none"}
+                          onValueChange={(value) => field.onChange(value === "none" ? undefined : value)}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione a categoria" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">Sem categoria</SelectItem>
+                            {[
+                              "Hardware",
+                              "Software",
+                              "Dados",
+                              "Pessoas",
+                              "Instalações",
+                              "Serviços",
+                              "Processos",
+                            ].map((option) => (
+                              <SelectItem key={option} value={option}>
+                                {option}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="assetName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nome do Ativo</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Ex: Servidor de arquivos" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="threat"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ameaça</FormLabel>
+                        <FormControl>
+                          <Textarea className="min-h-24" placeholder="Descreva a ameaça relevante" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="vulnerability"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Vulnerabilidade</FormLabel>
+                        <FormControl>
+                          <Textarea className="min-h-24" placeholder="Descreva a vulnerabilidade" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="existingControls"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Controles Existentes</FormLabel>
+                        <FormControl>
+                          <Textarea className="min-h-24" placeholder="Liste controles existentes" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="proposedControls"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Controles Propostos</FormLabel>
+                        <FormControl>
+                          <Textarea className="min-h-24" placeholder="Descreva os controles propostos" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-[1fr_1fr_180px]">
+                  <FormField
+                    control={form.control}
+                    name="inherentProbability"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Probabilidade Inerente</FormLabel>
+                        <Select
+                          value={field.value ? String(field.value) : "none"}
+                          onValueChange={(value) => field.onChange(value === "none" ? undefined : Number(value))}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">Sem seleção</SelectItem>
+                            {scoreLabels.map((item) => (
+                              <SelectItem key={item.value} value={String(item.value)}>
+                                {item.value} - {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="inherentImpact"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Impacto Inerente</FormLabel>
+                        <Select
+                          value={field.value ? String(field.value) : "none"}
+                          onValueChange={(value) => field.onChange(value === "none" ? undefined : Number(value))}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">Sem seleção</SelectItem>
+                            {scoreLabels.map((item) => (
+                              <SelectItem key={item.value} value={String(item.value)}>
+                                {item.value} - {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="inherentScore"
+                    render={() => (
+                      <FormItem>
+                        <FormLabel>Score Inerente</FormLabel>
+                        <FormControl>
+                          <Input type="number" value={inherentScore ?? ""} readOnly />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-[1fr_1fr_180px]">
+                  <FormField
+                    control={form.control}
+                    name="residualProbability"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Probabilidade Residual</FormLabel>
+                        <Select
+                          value={field.value ? String(field.value) : "none"}
+                          onValueChange={(value) => field.onChange(value === "none" ? undefined : Number(value))}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">Sem seleção</SelectItem>
+                            {scoreLabels.map((item) => (
+                              <SelectItem key={item.value} value={String(item.value)}>
+                                {item.value} - {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="residualImpact"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Impacto Residual</FormLabel>
+                        <Select
+                          value={field.value ? String(field.value) : "none"}
+                          onValueChange={(value) => field.onChange(value === "none" ? undefined : Number(value))}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">Sem seleção</SelectItem>
+                            {scoreLabels.map((item) => (
+                              <SelectItem key={item.value} value={String(item.value)}>
+                                {item.value} - {item.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="residualScore"
+                    render={() => (
+                      <FormItem>
+                        <FormLabel>Score Residual</FormLabel>
+                        <FormControl>
+                          <Input type="number" value={residualScore ?? ""} readOnly />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

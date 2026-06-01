@@ -246,17 +246,19 @@ export default function RisksPage() {
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
+  const companiesQuery = useCompanies();
+  const firstCompanyId = companiesQuery.data?.[0]?.id;
+
   const filters: RiskFilters = {
     status: statusFilter === "ALL" ? undefined : statusFilter,
     riskLevel: levelFilter === "ALL" ? undefined : levelFilter,
     category: categoryFilter === "ALL" ? undefined : categoryFilter,
-    companyId: isAdmin ? companyFilter ?? undefined : undefined,
+    companyId: isAdmin ? companyFilter ?? undefined : firstCompanyId,
   };
 
   const risksQuery = useRisks(filters);
-  const statsQuery = useRiskStats(isAdmin ? companyFilter ?? undefined : undefined);
-  const matrixQuery = useRiskMatrix(isAdmin ? companyFilter ?? undefined : undefined);
-  const companiesQuery = useCompanies();
+  const statsQuery = useRiskStats(isAdmin ? companyFilter ?? undefined : firstCompanyId);
+  const matrixQuery = useRiskMatrix(isAdmin ? companyFilter ?? undefined : firstCompanyId);
   const usersQuery = useUsers();
   const assessmentsQuery = useAssessments();
   const detailQuery = useRisk(selectedRiskId ?? 0);

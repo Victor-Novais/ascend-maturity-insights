@@ -42,6 +42,23 @@ function formatDate(value?: string | null) {
   return format(parseISO(value), "dd/MM/yyyy", { locale: ptBR });
 }
 
+function hasTicAnalysis(risk: Risk) {
+  return [
+    risk.assetCategory,
+    risk.assetName,
+    risk.threat,
+    risk.vulnerability,
+    risk.existingControls,
+    risk.proposedControls,
+    risk.inherentProbability,
+    risk.inherentImpact,
+    risk.inherentScore,
+    risk.residualProbability,
+    risk.residualImpact,
+    risk.residualScore,
+  ].some((value) => value !== undefined && value !== null && value !== "");
+}
+
 export default function RiskDetail({ open, onOpenChange, risk, onEdit }: Props) {
   if (!risk) return null;
 
@@ -121,6 +138,94 @@ export default function RiskDetail({ open, onOpenChange, risk, onEdit }: Props) 
               )}
             </div>
           </section>
+
+          {hasTicAnalysis(risk) ? (
+            <section className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border bg-muted/10 p-4">
+                  <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Ativo</p>
+                  <div className="mt-3 space-y-3 text-sm">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Categoria do ativo</p>
+                      <p className="font-medium text-foreground">{risk.assetCategory ?? "Não informado"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Nome do ativo</p>
+                      <p className="font-medium text-foreground">{risk.assetName ?? "Não informado"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border bg-muted/10 p-4">
+                  <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Ameaça e Controles</p>
+                  <div className="mt-3 space-y-4 text-sm">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Ameaça</p>
+                      <p className="font-medium text-foreground">{risk.threat ?? "Não informado"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Vulnerabilidade</p>
+                      <p className="font-medium text-foreground">{risk.vulnerability ?? "Não informado"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Controles Existentes</p>
+                      <p className="font-medium text-foreground">{risk.existingControls ?? "Não informado"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Controles Propostos</p>
+                      <p className="font-medium text-foreground">{risk.proposedControls ?? "Não informado"}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border bg-muted/10 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Risco Inerente vs Residual</p>
+                  <div className="flex gap-2 text-sm">
+                    {risk.inherentScore != null ? (
+                      <Badge className={getRiskLevelBadgeClass(getRiskLevelFromScore(risk.inherentScore))}>
+                        Inerente
+                      </Badge>
+                    ) : null}
+                    {risk.residualScore != null ? (
+                      <Badge className={getRiskLevelBadgeClass(getRiskLevelFromScore(risk.residualScore))}>
+                        Residual
+                      </Badge>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                        <th className="pb-3 pr-6">Métrica</th>
+                        <th className="pb-3 pr-6">Inerente</th>
+                        <th className="pb-3">Residual</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      <tr>
+                        <td className="py-3 pr-6 font-medium">Probabilidade</td>
+                        <td className="py-3 pr-6">{risk.inherentProbability ?? "-"}/5</td>
+                        <td className="py-3">{risk.residualProbability ?? "-"}/5</td>
+                      </tr>
+                      <tr>
+                        <td className="py-3 pr-6 font-medium">Impacto</td>
+                        <td className="py-3 pr-6">{risk.inherentImpact ?? "-"}/5</td>
+                        <td className="py-3">{risk.residualImpact ?? "-"}/5</td>
+                      </tr>
+                      <tr>
+                        <td className="py-3 pr-6 font-medium">Score</td>
+                        <td className="py-3 pr-6">{risk.inherentScore ?? "-"}</td>
+                        <td className="py-3">{risk.residualScore ?? "-"}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <section className="space-y-3">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Descricao</h3>

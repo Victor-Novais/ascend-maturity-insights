@@ -49,6 +49,19 @@ export interface Risk {
   updatedAt?: string;
   responsible?: Pick<User, "id" | "name" | "email" | "role"> | null;
   company?: Pick<Company, "id" | "name" | "segment"> | null;
+  assetCategory?: string;
+  assetName?: string;
+  threat?: string;
+  vulnerability?: string;
+  inherentProbability?: number;
+  inherentImpact?: number;
+  inherentScore?: number;
+  existingControls?: string;
+  proposedControls?: string;
+  residualProbability?: number;
+  residualImpact?: number;
+  residualScore?: number;
+  residualLevel?: string;
 }
 
 export interface RiskFilters {
@@ -75,6 +88,19 @@ export interface CreateRiskInput {
   treatment?: RiskTreatment | string | null;
   responsibleId?: string | null;
   reviewDate?: string | null;
+  assetCategory?: string;
+  assetName?: string;
+  threat?: string;
+  vulnerability?: string;
+  inherentProbability?: number;
+  inherentImpact?: number;
+  inherentScore?: number;
+  existingControls?: string;
+  proposedControls?: string;
+  residualProbability?: number;
+  residualImpact?: number;
+  residualScore?: number;
+  residualLevel?: string;
 }
 
 export type UpdateRiskInput = Partial<CreateRiskInput>;

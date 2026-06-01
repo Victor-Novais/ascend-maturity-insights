@@ -34,6 +34,12 @@ export function useExport5W2H() {
   });
 }
 
+export function useExportActionPlans() {
+  return useMutation({
+    mutationFn: (filters?: ActionPlanFilters) => actionPlansService.exportTo5W2H(filters),
+  });
+}
+
 export function useCreateActionPlan() {
   const queryClient = useQueryClient();
   return useMutation({

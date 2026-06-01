@@ -40,7 +40,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActionPlans, useActionPlanStats, useCreateActionPlan, useDeleteActionPlan, useExport5W2H, useGenerateFromAssessment, useUpdateActionPlan } from "@/hooks/useActionPlans";
+import { useActionPlans, useActionPlanStats, useCreateActionPlan, useDeleteActionPlan, useExportActionPlans, useGenerateFromAssessment, useUpdateActionPlan } from "@/hooks/useActionPlans";
 import { useAssessments } from "@/hooks/useAssessments";
 import { useCompanies } from "@/hooks/useCompanies";
 import { useUsers } from "@/hooks/useUser";
@@ -60,7 +60,12 @@ const priorityOptions = ["ALL", ...Object.values(ActionPlanPriority)] as const;
 
 function isEvaluatorRole(role?: string | null) {
   const normalized = String(role ?? "").toUpperCase();
-  return normalized === "ADMIN" || normalized === "COLLABORATOR" || normalized === "AVALIADOR";
+  return (
+    normalized === "ADMIN" ||
+    normalized === "CLIENTE" ||
+    normalized === "COLLABORATOR" ||
+    normalized === "AVALIADOR"
+  );
 }
 
 function formatDueDate(value?: string) {
@@ -130,7 +135,7 @@ export default function ActionPlansPage() {
   const createActionPlan = useCreateActionPlan();
   const updateActionPlan = useUpdateActionPlan();
   const deleteActionPlan = useDeleteActionPlan();
-  const export5W2H = useExport5W2H();
+  const exportActionPlans = useExportActionPlans();
   const generateFromAssessment = useGenerateFromAssessment();
 
   if (!isEvaluatorRole(user?.role)) {
@@ -228,7 +233,7 @@ export default function ActionPlansPage() {
 
   const handleExport5W2H = async () => {
     try {
-      const exportedPlans = await export5W2H.mutateAsync(filters);
+      const exportedPlans = await exportActionPlans.mutateAsync(filters);
 
       const rows = exportedPlans.map((plan) => ({
         "O QUÊ": plan.whatObjective ?? "",
@@ -268,7 +273,7 @@ export default function ActionPlansPage() {
             <Sparkles className="mr-2 h-4 w-4" />
             Gerar do Assessment
           </Button>
-          <Button type="button" variant="outline" onClick={() => void handleExport5W2H()} disabled={export5W2H.isPending}>
+          <Button type="button" variant="outline" onClick={() => void handleExport5W2H()} disabled={exportActionPlans.isPending}>
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Exportar 5W2H
           </Button>
