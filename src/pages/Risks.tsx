@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import * as XLSX from "xlsx";
 import {
   AlertTriangle,
   CheckCircle,
+  Download,
   Flame,
   Loader2,
   Plus,
@@ -97,6 +99,124 @@ function formatReviewDate(value?: string | null) {
   return format(parseISO(value), "dd/MM/yyyy", { locale: ptBR });
 }
 
+function generateRisksXlsx(
+  risks: Risk[],
+  stats: { critical: number; high: number; inTreatment: number; mitigated: number } | undefined
+) {
+  const workbook = XLSX.utils.book_new();
+
+  // Aba 1: Resumo com estatísticas
+  const summaryData = [
+    ["Resumo de Riscos", ""],
+    ["", ""],
+    ["Métrica", "Valor"],
+    ["Riscos Críticos", stats?.critical ?? 0],
+    ["Riscos Altos", stats?.high ?? 0],
+    ["Em Tratamento", stats?.inTreatment ?? 0],
+    ["Mitigados", stats?.mitigated ?? 0],
+    ["Total de Riscos", risks.length],
+  ];
+
+  const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+  if (summarySheet["A1"]) {
+    summarySheet["A1"].fill = { fgColor: { rgb: "1F4E79" } };
+    summarySheet["A1"].font = { bold: true, color: { rgb: "FFFFFF" } };
+  }
+  if (summarySheet["B1"]) {
+    summarySheet["B1"].fill = { fgColor: { rgb: "1F4E79" } };
+    summarySheet["B1"].font = { bold: true, color: { rgb: "FFFFFF" } };
+  }
+
+  // Aplicar estilo aos cabeçalhos
+  for (let i = 65; i <= 66; i++) {
+    const cellRef = String.fromCharCode(i) + "3";
+    if (summarySheet[cellRef]) {
+      summarySheet[cellRef].fill = { fgColor: { rgb: "1F4E79" } };
+      summarySheet[cellRef].font = { bold: true, color: { rgb: "FFFFFF" } };
+    }
+  }
+
+  summarySheet["!cols"] = [{ wch: 25 }, { wch: 15 }];
+  XLSX.utils.book_append_sheet(workbook, summarySheet, "Resumo");
+
+  // Aba 2: Detalhes dos riscos
+  const risksData: unknown[][] = [
+    [
+      "ID",
+      "Título",
+      "Descrição",
+      "Categoria",
+      "Nível",
+      "Status",
+      "Probabilidade",
+      "Impacto",
+      "Responsável",
+      "Data de Revisão",
+      "Observações",
+    ],
+    ...risks.map((risk) => [
+      risk.id,
+      risk.title,
+      risk.description || "-",
+      riskCategoryLabels[risk.category as RiskCategory] || risk.category,
+      riskLevelLabels[risk.riskLevel as RiskLevel] || risk.riskLevel,
+      riskStatusLabels[risk.status as RiskStatus] || risk.status,
+      risk.probability,
+      risk.impact,
+      risk.responsible || "-",
+      formatReviewDate(risk.reviewDate),
+      risk.notes || "-",
+    ]),
+  ];
+
+  const risksSheet = XLSX.utils.aoa_to_sheet(risksData);
+
+  // Aplicar estilos ao cabeçalho
+  for (let i = 1; i <= 11; i++) {
+    const cellRef = XLSX.utils.encode_col(i - 1) + "1";
+    if (risksSheet[cellRef]) {
+      risksSheet[cellRef].fill = { fgColor: { rgb: "1F4E79" } };
+      risksSheet[cellRef].font = { bold: true, color: { rgb: "FFFFFF" } };
+    }
+  }
+
+  // Aplicar cores aos níveis de risco
+  const riskLevelColors: Record<RiskLevel, string> = {
+    [RiskLevel.CRITICAL]: "FF0000", // Vermelho
+    [RiskLevel.HIGH]: "FF9900", // Laranja
+    [RiskLevel.MEDIUM]: "FFFF00", // Amarelo
+    [RiskLevel.LOW]: "00B050", // Verde
+  };
+
+  risksData.forEach((row, rowIndex) => {
+    if (rowIndex === 0) return; // Pular cabeçalho
+    const riskLevel = row[4] as RiskLevel; // Coluna de nível
+    const cellRef = XLSX.utils.encode_col(4) + (rowIndex + 1);
+    if (risksSheet[cellRef] && riskLevelColors[riskLevel]) {
+      risksSheet[cellRef].fill = { fgColor: { rgb: riskLevelColors[riskLevel] } };
+    }
+  });
+
+  risksSheet["!cols"] = [
+    { wch: 8 },
+    { wch: 20 },
+    { wch: 30 },
+    { wch: 15 },
+    { wch: 12 },
+    { wch: 12 },
+    { wch: 12 },
+    { wch: 10 },
+    { wch: 15 },
+    { wch: 15 },
+    { wch: 20 },
+  ];
+
+  XLSX.utils.book_append_sheet(workbook, risksSheet, "Riscos");
+
+  // Gerar arquivo
+  XLSX.writeFile(workbook, `Riscos_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+}
+
 function RisksStatsSkeleton() {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -124,6 +244,7 @@ export default function RisksPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<number | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const filters: RiskFilters = {
     status: statusFilter === "ALL" ? undefined : statusFilter,
@@ -202,6 +323,25 @@ export default function RisksPage() {
     }
   }
 
+  const handleExportXlsx = async () => {
+    try {
+      setIsExporting(true);
+      const toastId = toast.loading("📊 Gerando planilha... isso pode levar alguns segundos");
+
+      // Simular processamento assíncrono
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      generateRisksXlsx(risks, statsQuery.data);
+
+      toast.dismiss(toastId);
+      toast.success("Planilha de riscos exportada com sucesso!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao exportar planilha.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -212,6 +352,19 @@ export default function RisksPage() {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => void handleExportXlsx()}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            Exportar XLSX
+          </Button>
           <Button variant="outline" className="rounded-xl" onClick={() => setIsGenerateOpen(true)}>
             <Sparkles className="mr-2 h-4 w-4" />
             Gerar do Assessment

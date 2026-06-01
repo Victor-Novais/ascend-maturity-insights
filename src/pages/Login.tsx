@@ -6,6 +6,31 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { ArrowRight, BarChart3, Eye, EyeOff } from "lucide-react";
 import { ApiError } from "@/lib/api";
+import type { UserRole } from "@/lib/types";
+
+function decodeJwtPayload<T>(token: string): T | null {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = window.atob(normalized);
+    return JSON.parse(decoded) as T;
+  } catch {
+    return null;
+  }
+}
+
+function decodeUserFromToken(accessToken: string) {
+  const payload = decodeJwtPayload<{ id?: string; email?: string; role?: UserRole; name?: string | null; createdAt?: string }>(accessToken);
+  if (!payload?.id || !payload?.email || !payload?.role) return null;
+  return {
+    id: payload.id,
+    email: payload.email,
+    role: payload.role,
+    name: payload.name ?? null,
+    createdAt: payload.createdAt ?? new Date().toISOString(),
+  };
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -35,13 +60,14 @@ export default function LoginPage() {
         email: email.trim(),
         password,
       });
-      if (!result.user) {
+      const user = result.user ?? decodeUserFromToken(result.accessToken);
+      if (!user) {
         throw new Error("Resposta de autenticação incompleta.");
       }
       await login({
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
-        user: result.user,
+        user,
       });
       setAttempts(0);
       setLockUntil(null);

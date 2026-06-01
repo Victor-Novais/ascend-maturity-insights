@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, ArrowLeft, BarChart3, CheckCircle2, Plus, ShieldCheck, Sparkles, Target, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowLeft, BarChart3, CheckCircle2, Download, FileText, Loader2, Plus, ShieldCheck, Sparkles, Target, TrendingUp } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useExportPDTI, usePDTI, useUpdatePDTI } from "@/hooks/usePDTI";
+import { useDownloadPdtiDocx, useDownloadPdtiPdf } from "@/hooks/useExports";
 import { PDTIStatus, type PDTIDiagnostic, type PDTIAction, type PDTIIndicator, type PDTIObjective, type PDTI } from "@/types/pdti";
 
 const overviewFields = [
@@ -200,6 +201,8 @@ export default function PDTIDetailPage() {
   const pdtiQuery = usePDTI(planId);
   const exportQuery = useExportPDTI(planId);
   const updatePDTI = useUpdatePDTI();
+  const downloadPdtiPdf = useDownloadPdtiPdf();
+  const downloadPdtiDocx = useDownloadPdtiDocx();
 
   const [overviewDraft, setOverviewDraft] = useState<Record<string, string>>({});
   const [diagnosticDraft, setDiagnosticDraft] = useState<PDTIDiagnostic>({
@@ -389,81 +392,23 @@ export default function PDTIDetailPage() {
 
   const exportedData = exportQuery.data ?? plan;
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     try {
-      const doc = new jsPDF({ unit: "pt", format: "a4" });
-      let y = 40;
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-
-      const addParagraph = (text: string, fontSize = 10, bold = false) => {
-        doc.setFont("helvetica", bold ? "bold" : "normal");
-        doc.setFontSize(fontSize);
-        const lines = doc.splitTextToSize(text || "—", pageWidth - 80);
-        doc.text(lines, 40, y);
-        y += lines.length * (fontSize + 2);
-        if (y > pageHeight - 40) {
-          doc.addPage();
-          y = 40;
-        }
-      };
-
-      addParagraph(plan.title, 18, true);
-      addParagraph(`${plan.company?.name ?? `Empresa #${plan.companyId}`} · ${plan.year} · ${plan.period}`, 10);
-      y += 10;
-
-      addParagraph("Visão Geral", 14, true);
-      addParagraph(`Missão: ${plan.mission || "—"}`);
-      addParagraph(`Visão: ${plan.vision || "—"}`);
-      addParagraph(`Valores: ${plan.values || "—"}`);
-      addParagraph(`Alinhamento Estratégico: ${plan.strategicAlignment || "—"}`);
-      addParagraph(`Requisitos Legais: ${plan.legalRequirements || "—"}`);
-      addParagraph(`Cenário Atual: ${plan.currentScenario || "—"}`);
-      addParagraph(`Cenário Desejado: ${plan.desiredScenario || "—"}`);
-
-      addParagraph("Diagnóstico", 14, true);
-      (Object.entries(normalizeDiagnostic(plan.diagnostic)) as [keyof PDTIDiagnostic, string[]][]).forEach(([key, items]) => {
-        addParagraph(`${key}:`, 11, true);
-        items.forEach((item) => addParagraph(`• ${item || "—"}`));
-      });
-
-      addParagraph("Objetivos Estratégicos", 14, true);
-      (plan.objectives ?? []).forEach((objective, index) => {
-        addParagraph(`${index + 1}. ${objective.title}`, 11, true);
-        addParagraph(`Prioridade: ${objective.priority} · Categoria: ${objective.category} · Status: ${objective.status}`);
-        addParagraph(`Descrição: ${objective.description || "—"}`);
-      });
-
-      addParagraph("Indicadores", 14, true);
-      (plan.indicators ?? []).forEach((indicator, index) => {
-        addParagraph(`${index + 1}. ${indicator.name}`, 11, true);
-        addParagraph(`Unidade: ${indicator.unit} · Baseline: ${indicator.baseline} · Meta: ${indicator.target} · Atual: ${indicator.current}`);
-        addParagraph(`Frequência: ${indicator.frequency} · % atingido: ${indicator.achievedPercent ?? 0}`);
-      });
-
-      addParagraph("Cronograma", 14, true);
-      (plan.actions ?? []).forEach((action, index) => {
-        addParagraph(`${index + 1}. ${action.title}`, 11, true);
-        addParagraph(`Status: ${action.status} · Prioridade: ${action.priority || "—"}`);
-        addParagraph(`Início: ${action.startDate ? new Date(action.startDate).toLocaleDateString("pt-BR") : "—"}`);
-        addParagraph(`Prazo: ${action.dueDate ? new Date(action.dueDate).toLocaleDateString("pt-BR") : "—"}`);
-        addParagraph(`Responsável: ${action.assignee || "—"}`);
-      });
-
-      const filename = `pdti-${plan.id}.pdf`;
-      doc.save(filename);
-      toast.success(`PDF salvo em ${filename}.`);
+      const toastId = toast.loading("📋 Gerando PDF... isso pode levar alguns segundos");
+      await downloadPdtiPdf.mutateAsync(planId);
+      toast.dismiss(toastId);
+      toast.success("PDF baixado com sucesso!");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao exportar PDF.");
     }
   };
 
-  const handleExportWord = () => {
+  const handleExportWord = async () => {
     try {
-      const filename = `pdti-${plan.id}.html`;
-      const blob = new Blob([buildWordHtml(exportedData)], { type: "text/html;charset=utf-8" });
-      downloadBlob(filename, blob);
-      toast.success(`Documento Word compatível salvo em ${filename}.`);
+      const toastId = toast.loading("📄 Gerando Word... isso pode levar alguns segundos");
+      await downloadPdtiDocx.mutateAsync(planId);
+      toast.dismiss(toastId);
+      toast.success("Documento Word baixado com sucesso!");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao exportar documento Word.");
     }
@@ -487,11 +432,31 @@ export default function PDTIDetailPage() {
 
         <div className="flex flex-wrap gap-2">
           <Badge className={statusStyles[plan.status]}>{plan.status}</Badge>
-          <Button type="button" variant="outline" onClick={() => handleExportPdf()}>
-            Exportar PDF
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleExportPdf()}
+            disabled={downloadPdtiPdf.isPending}
+          >
+            {downloadPdtiPdf.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
+            PDF
           </Button>
-          <Button type="button" variant="outline" onClick={() => handleExportWord()}>
-            Exportar Word
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleExportWord()}
+            disabled={downloadPdtiDocx.isPending}
+          >
+            {downloadPdtiDocx.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="mr-2 h-4 w-4" />
+            )}
+            Word
           </Button>
         </div>
       </div>
@@ -896,11 +861,33 @@ export default function PDTIDetailPage() {
                 <CardTitle className="text-base">Ações de exportação</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button type="button" variant="outline" className="w-full justify-start" onClick={() => handleExportPdf()}>
-                  Exportar PDF
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => handleExportPdf()}
+                  disabled={downloadPdtiPdf.isPending}
+                >
+                  {downloadPdtiPdf.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  📋 Baixar PDF
                 </Button>
-                <Button type="button" variant="outline" className="w-full justify-start" onClick={() => handleExportWord()}>
-                  Exportar Word
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => handleExportWord()}
+                  disabled={downloadPdtiDocx.isPending}
+                >
+                  {downloadPdtiDocx.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="mr-2 h-4 w-4" />
+                  )}
+                  📄 Baixar Word (.docx)
                 </Button>
                 <div className="rounded-xl bg-muted p-3 text-sm text-muted-foreground">
                   Os dados exportados refletem a estrutura completa do PDTI, incluindo objetivos, ações, indicadores e cenário estratégico.

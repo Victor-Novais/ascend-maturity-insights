@@ -8,11 +8,12 @@ import FrameworkBadge from "@/components/FrameworkBadge";
 import { SkeletonCard } from "@/components/ui/skeleton-card";
 import MaturityChart from "@/components/MaturityChart";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ArrowLeft, Award, Download, Sparkles, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Award, Download, Loader2, Sparkles, TrendingUp } from "lucide-react";
 import { ApiError } from "@/lib/api";
 import { normalizeStrengthsWeaknesses } from "@/lib/report-utils";
 import { toast } from "sonner";
 import { generateAssessmentPdf } from "@/utils/generatePdf";
+import { useDownloadReportPdf } from "@/hooks/useExports";
 
 const maturityConfig: Record<string, { label: string; color: string; bg: string }> = {
   Inicial: { label: "Inicial", color: "text-destructive", bg: "bg-destructive/10" },
@@ -39,6 +40,7 @@ export default function ReportPage() {
   const { data: result, isLoading, error } = useAssessmentResult(assessmentId);
   const generateFromAssessment = useGenerateFromAssessment();
   const generateRisksFromAssessment = useGenerateRisksFromAssessment();
+  const downloadReportPdf = useDownloadReportPdf();
 
   if (user?.role === "COLLABORATOR") {
     return (
@@ -111,15 +113,27 @@ export default function ReportPage() {
   };
 
   const handleExportPdf = async () => {
-    if (!assessment?.companyId) {
-      toast.error("Empresa nao encontrada para exportacao.");
-      return;
-    }
-
     try {
-      const reportExport = await analyticsService.getCompanyReportExport(assessment.companyId);
-      generateAssessmentPdf(reportExport);
-      toast.success("Relatorio PDF exportado com sucesso.");
+      const toastId = toast.loading("📋 Gerando PDF... isso pode levar alguns segundos");
+      
+      try {
+        // Tentar usar o endpoint do servidor primeiro
+        await downloadReportPdf.mutateAsync(assessmentId);
+        toast.dismiss(toastId);
+        toast.success("PDF do relatório baixado com sucesso!");
+      } catch (apiError) {
+        // Fallback: gerar PDF localmente se o servidor falhar
+        toast.dismiss(toastId);
+        toast.info("Usando geração local de PDF como fallback...");
+        
+        if (!assessment?.companyId) {
+          throw new Error("Empresa não encontrada para exportação.");
+        }
+
+        const reportExport = await analyticsService.getCompanyReportExport(assessment.companyId);
+        generateAssessmentPdf(reportExport);
+        toast.success("Relatório PDF exportado com sucesso (geração local).");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao exportar PDF.");
     }
@@ -141,8 +155,16 @@ export default function ReportPage() {
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Button variant="outline" onClick={() => void handleExportPdf()}>
-            <Download className="mr-2 h-4 w-4" />
+          <Button
+            variant="outline"
+            onClick={() => void handleExportPdf()}
+            disabled={downloadReportPdf.isPending}
+          >
+            {downloadReportPdf.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="mr-2 h-4 w-4" />
+            )}
             Exportar Relatorio PDF
           </Button>
           <Button variant="outline" onClick={() => void handleGenerateRiskMatrix()} disabled={generateRisksFromAssessment.isPending}>
