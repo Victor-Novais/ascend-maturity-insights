@@ -6,6 +6,7 @@ export function usePDTIs(filters?: { companyId?: number; status?: string; assess
   return useQuery({
     queryKey: ["pdti", filters],
     queryFn: () => pdtiService.list(filters),
+    retry: false,
   });
 }
 
@@ -14,6 +15,7 @@ export function usePDTI(id: number, enabled = true) {
     queryKey: ["pdti", id],
     queryFn: () => pdtiService.getById(id),
     enabled: enabled && Number.isFinite(id) && id > 0,
+    retry: false,
   });
 }
 
@@ -68,5 +70,6 @@ export function useExportPDTI(id: number, enabled = true) {
     queryKey: ["pdti-export", id],
     queryFn: () => pdtiService.exportData(id),
     enabled: enabled && Number.isFinite(id) && id > 0,
+    retry: false,
   });
 }

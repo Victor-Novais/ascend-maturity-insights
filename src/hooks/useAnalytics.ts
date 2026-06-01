@@ -7,6 +7,7 @@ export function useCompanyEvolution(companyId: number) {
     queryKey: ["analytics", "company-evolution", companyId],
     queryFn: () => analyticsService.getCompanyEvolution(companyId),
     enabled: Number.isFinite(companyId) && companyId > 0,
+    retry: false,
   });
 }
 
@@ -19,10 +20,12 @@ export function useCompanyComparison(companyIds: number[]) {
 }
 
 export function useBenchmark(segment: string) {
+  const { user } = useAuth();
   return useQuery({
     queryKey: ["analytics", "benchmark", segment],
     queryFn: () => analyticsService.getBenchmark(segment),
     enabled: !!segment,
+    retry: false,
   });
 }
 
@@ -40,5 +43,6 @@ export function useCompanyRadar(companyId: number) {
     queryKey: ["analytics", "company-radar", companyId],
     queryFn: () => analyticsService.getCompanyRadar(companyId),
     enabled: Number.isFinite(companyId) && companyId > 0,
+    retry: false,
   });
 }

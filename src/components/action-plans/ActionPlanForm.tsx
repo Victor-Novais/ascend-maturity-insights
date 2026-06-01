@@ -332,12 +332,20 @@ export default function ActionPlanForm({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="all">Não atribuído</SelectItem>
-                            {responsibles.map((responsible) => (
-                              <SelectItem key={responsible.id} value={responsible.id}>
-                                {responsible.name}
+                            {responsibles.length === 0 ? (
+                              <SelectItem value="none" disabled>
+                                Nenhum responsável disponível
                               </SelectItem>
-                            ))}
+                            ) : (
+                              <>
+                                <SelectItem value="all">Não atribuído</SelectItem>
+                                {responsibles.map((responsible) => (
+                                  <SelectItem key={responsible.id} value={responsible.id}>
+                                    {responsible.name}
+                                  </SelectItem>
+                                ))}
+                              </>
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />

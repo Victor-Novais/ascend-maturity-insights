@@ -1,3 +1,4 @@
+import React from "react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -50,9 +51,35 @@ const linePalette: Record<string, string> = {
   CULTURA: "#ca8a04",
 };
 
+class AnalyticsErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center h-64 gap-4">
+          <p className="text-muted-foreground">Não foi possível carregar o Analytics.</p>
+          <button
+            className="text-sm underline"
+            onClick={() => this.setState({ hasError: false })}
+          >
+            Tentar novamente
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 export default function AnalyticsPage() {
   const { user } = useAuth();
-  const isAdminOrCollaborator = user?.role === "ADMIN" || user?.role === "COLLABORATOR";
+  const isAdminOrAvaliador = user?.role === "ADMIN" || user?.role === "AVALIADOR";
   const companiesQuery = useCompanies();
   const companies = (companiesQuery.data ?? []) as CompanyWithRelations[];
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(companies[0]?.id ?? null);
@@ -114,7 +141,8 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <AnalyticsErrorBoundary>
+      <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Analytics</h1>
@@ -313,7 +341,7 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
-      {isAdminOrCollaborator ? (
+      {isAdminOrAvaliador ? (
         <Card className="rounded-2xl">
           <CardHeader className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div>
@@ -396,5 +424,6 @@ export default function AnalyticsPage() {
         </Card>
       ) : null}
     </div>
+  </AnalyticsErrorBoundary>
   );
 }

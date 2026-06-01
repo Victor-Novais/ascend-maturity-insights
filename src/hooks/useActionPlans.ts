@@ -10,6 +10,7 @@ export function useActionPlans(filters?: ActionPlanFilters) {
   return useQuery({
     queryKey: ["action-plans", filters],
     queryFn: () => actionPlansService.list(filters),
+    retry: false,
   });
 }
 
@@ -18,6 +19,7 @@ export function useActionPlan(id: number) {
     queryKey: ["action-plans", id],
     queryFn: () => actionPlansService.getById(id),
     enabled: Number.isFinite(id) && id > 0,
+    retry: false,
   });
 }
 
@@ -25,6 +27,7 @@ export function useActionPlanStats(companyId?: number) {
   return useQuery({
     queryKey: ["action-plans-stats", companyId],
     queryFn: () => actionPlansService.getStats(companyId),
+    retry: false,
   });
 }
 

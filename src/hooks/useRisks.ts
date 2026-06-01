@@ -7,6 +7,7 @@ export function useRisks(filters?: RiskFilters, enabled = true) {
     queryKey: ["risks", filters],
     queryFn: () => risksService.list(filters),
     enabled,
+    retry: false,
   });
 }
 
@@ -15,6 +16,7 @@ export function useRisk(id: number) {
     queryKey: ["risks", id],
     queryFn: () => risksService.getById(id),
     enabled: Number.isFinite(id) && id > 0,
+    retry: false,
   });
 }
 
@@ -23,6 +25,7 @@ export function useRiskStats(companyId?: number, enabled = true) {
     queryKey: ["risk-stats", companyId],
     queryFn: () => risksService.getStats(companyId),
     enabled,
+    retry: false,
   });
 }
 
@@ -31,6 +34,7 @@ export function useRiskMatrix(companyId?: number, enabled = true) {
     queryKey: ["risk-matrix", companyId],
     queryFn: () => risksService.getMatrix(companyId),
     enabled,
+    retry: false,
   });
 }
 
